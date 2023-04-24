@@ -1,4 +1,4 @@
-package common
+package main
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 
 func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	var receivable R
-	var received chan error
+	received := make(chan error)
 	var receivedMessage []byte
 
 	go func() {
@@ -65,19 +65,24 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 			received <- err
 			return
 		}
+		fmt.Println("waiting for messages")
 		rm := <-msgs
+		fmt.Printf("message received: %v\n", rm)
 		receivedMessage = rm.Body
-		received <- nil
+		received <- err
 	}()
+	fmt.Println("waiting for message 1")
 	err := <-received
+	fmt.Println("answered")
 	if err != nil {
 		FailOnError(err, "Failed to receive a message")
 		return receivable, err
 	}
-	if err = json.Unmarshal(receivedMessage, receivable); err != nil {
+	if err = json.Unmarshal(receivedMessage, &receivable); err != nil {
 		FailOnError(err, fmt.Sprintf("message %s couldn't be parsed to type %v", string(receivedMessage), receivable))
 		return receivable, errors.New(fmt.Sprint("couldn't unmarshall message received"))
 	}
+	fmt.Printf("returning: %v\n", receivable)
 	return receivable, nil
 }
 
