@@ -65,15 +65,11 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 			received <- err
 			return
 		}
-		fmt.Println("waiting for messages")
 		rm := <-msgs
-		fmt.Printf("message received: %v\n", rm)
 		receivedMessage = rm.Body
 		received <- err
 	}()
-	fmt.Println("waiting for message 1")
 	err := <-received
-	fmt.Println("answered")
 	if err != nil {
 		FailOnError(err, "Failed to receive a message")
 		return receivable, err
@@ -82,7 +78,6 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 		FailOnError(err, fmt.Sprintf("message %s couldn't be parsed to type %v", string(receivedMessage), receivable))
 		return receivable, errors.New(fmt.Sprint("couldn't unmarshall message received"))
 	}
-	fmt.Printf("returning: %v\n", receivable)
 	return receivable, nil
 }
 
