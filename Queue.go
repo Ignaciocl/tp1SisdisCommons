@@ -107,7 +107,7 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 	}
 	q, err := ch.QueueDeclare(
 		queueName, // name
-		false,     // durable
+		true,      // durable
 		false,     // delete when unused
 		false,     // exclusive
 		false,     // no-wait
