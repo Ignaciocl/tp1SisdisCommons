@@ -22,9 +22,10 @@ type Queue[S any, R any] interface {
 }
 
 type rabbitQueue[S any, R any] struct {
-	conn  *amqp.Connection
-	ch    *amqp.Channel
-	queue *amqp.Queue
+	conn             *amqp.Connection
+	ch               *amqp.Channel
+	queue            *amqp.Queue
+	channelConsuming <-chan amqp.Delivery
 }
 
 func (r *rabbitQueue[S, R]) SendMessage(message S) error {
@@ -52,21 +53,25 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	var receivedMessage []byte
 
 	go func() {
-		msgs, err := r.ch.Consume(
-			r.queue.Name, // queue
-			"",           // consumer
-			true,         // auto-ack
-			false,        // exclusive
-			false,        // no-local
-			false,        // no-wait
-			nil,          // args
-		)
-		if err != nil {
-			received <- err
-			return
+		if r.channelConsuming == nil {
+			msgs, err := r.ch.Consume(
+				r.queue.Name, // queue
+				"",           // consumer
+				false,        // auto-ack
+				false,        // exclusive
+				false,        // no-local
+				true,         // no-wait
+				nil,          // args
+			)
+			if err != nil {
+				received <- err
+				return
+			}
+			r.channelConsuming = msgs
 		}
-		rm := <-msgs
+		rm := <-r.channelConsuming
 		receivedMessage = rm.Body
+		err := r.ch.Ack(rm.DeliveryTag, false)
 		received <- err
 	}()
 	err := <-received
@@ -110,7 +115,7 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 		true,      // durable
 		false,     // delete when unused
 		false,     // exclusive
-		false,     // no-wait
+		true,      // no-wait
 		nil,       // arguments
 	)
 	if err != nil {
