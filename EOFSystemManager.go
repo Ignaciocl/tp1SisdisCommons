@@ -110,5 +110,5 @@ func CreateConsumerEOF(connection string, queueType string) (WaitForEof, error) 
 		nil,    // args
 	)
 	FailOnError(err, "Failed to register a consumer")
-	return &answerEofOk{ch: ch, conn: conn, msgs: msgs, finish: make(chan struct{}, 1), finishedHearing: make(chan struct{}, 1)}, nil
+	return &answerEofOk{ch: ch, conn: conn, msgs: msgs, finish: make(chan struct{}, 1), finishedHearing: make(chan struct{}, 1), addr: "manager:10000"}, nil
 }
