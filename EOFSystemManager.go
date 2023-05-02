@@ -51,6 +51,7 @@ func (a *answerEofOk) AnswerEofOk(value ValidatorStillUsingData) {
 }
 
 func (a *answerEofOk) Close() {
+	a.finish <- struct{}{}
 	a.Close()
 	a.ch.Close()
 }
@@ -61,7 +62,6 @@ func (a *answerEofOk) sendEOFCorrect() {
 		FailOnError(err, "could not parse address")
 	}
 	conn, _ := net.DialUDP("udp", nil, udpAddr)
-	<-a.finishedHearing
 	conn.Write([]byte("ok"))
 	conn.Close()
 }
