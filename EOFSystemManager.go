@@ -81,6 +81,17 @@ func CreateConsumerEOF(connection string, queueType string) (WaitForEof, error) 
 		conn.Close()
 		return nil, err
 	}
+	if err := ch.ExchangeDeclare(
+		queueType, // name
+		"fanout",  // type
+		true,      // durable
+		false,     // auto-deleted
+		false,     // internal
+		false,     // no-wait
+		nil,       // arguments
+	); err != nil {
+		return nil, err
+	}
 	q, err := ch.QueueDeclare(
 		"",    // name
 		false, // durable
