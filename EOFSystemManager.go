@@ -9,8 +9,7 @@ import (
 )
 
 type ValidatorStillUsingData interface {
-	isStillUsingNecessaryDataForFile(file string, city string) bool
-	shouldExitAfterEOF() bool
+	IsStillUsingNecessaryDataForFile(file string, city string) bool
 }
 
 type WaitForEof interface {
@@ -40,7 +39,7 @@ func (a *answerEofOk) AnswerEofOk(value ValidatorStillUsingData) {
 			if err := json.Unmarshal(d.Body, &trigger); err != nil {
 				FailOnError(err, "could not understand message")
 			}
-			if value.isStillUsingNecessaryDataForFile(trigger.File, trigger.City) {
+			if value.IsStillUsingNecessaryDataForFile(trigger.File, trigger.City) {
 				a.sendEOFCorrect()
 			}
 		}
