@@ -29,7 +29,7 @@ func (p *publisher) Publish(targetPublic string, body []byte) error {
 	FailOnError(err, "Failed to declare an exchange")
 	ctx := context.Background()
 	return p.ch.PublishWithContext(ctx,
-		"", // exchange
+		targetPublic, // exchange
 		"",
 		false, // mandatory
 		false, // immediate
