@@ -19,6 +19,7 @@ type Queue[S any, R any] interface {
 	SendMessage(message S) error
 	ReceiveMessage() (R, error) // blocking until message is received
 	Close() error
+	IsEmpty() bool
 }
 
 type rabbitQueue[S any, R any] struct {
@@ -26,6 +27,7 @@ type rabbitQueue[S any, R any] struct {
 	ch               *amqp.Channel
 	queue            *amqp.Queue
 	channelConsuming <-chan amqp.Delivery
+	consumerName     string
 }
 
 func (r *rabbitQueue[S, R]) SendMessage(message S) error {
@@ -55,13 +57,13 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	go func() {
 		if r.channelConsuming == nil {
 			msgs, err := r.ch.Consume(
-				r.queue.Name, // queue
-				"",           // consumer
-				false,        // auto-ack
-				false,        // exclusive
-				false,        // no-local
-				true,         // no-wait
-				nil,          // args
+				r.queue.Name,   // queue
+				r.consumerName, // consumer
+				false,          // auto-ack
+				false,          // exclusive
+				false,          // no-local
+				true,           // no-wait
+				nil,            // args
 			)
 			if err != nil {
 				received <- err
@@ -91,6 +93,14 @@ func (r *rabbitQueue[S, R]) Close() error {
 	return r.conn.Close()
 }
 
+func (r *rabbitQueue[S, R]) IsEmpty() bool {
+	_, existMessage, err := r.ch.Get(r.queue.Name, false)
+	if err != nil {
+		FailOnError(err, "could not validate if queue is empty")
+	}
+	return existMessage
+}
+
 func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue[S, R], error) {
 	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
 	conn, err := amqp.Dial(url)
@@ -107,16 +117,17 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 		return nil, err
 	}
 	r := rabbitQueue[S, R]{
-		conn: conn,
-		ch:   ch,
+		conn:         conn,
+		ch:           ch,
+		consumerName: queueName,
 	}
 	q, err := ch.QueueDeclare(
-		queueName, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		true,      // no-wait
-		nil,       // arguments
+		"",    // name
+		true,  // durable
+		false, // delete when unused
+		false, // exclusive
+		true,  // no-wait
+		nil,   // arguments
 	)
 	if err != nil {
 		r.Close()
