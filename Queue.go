@@ -62,7 +62,7 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 				false,          // auto-ack
 				false,          // exclusive
 				false,          // no-local
-				true,           // no-wait
+				false,          // no-wait
 				nil,            // args
 			)
 			if err != nil {
@@ -132,7 +132,7 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 		true,  // durable
 		false, // delete when unused
 		false, // exclusive
-		true,  // no-wait
+		false, // no-wait
 		nil,   // arguments
 	)
 	if err != nil {
