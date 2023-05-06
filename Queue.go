@@ -43,8 +43,9 @@ func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 		false,          // mandatory
 		false,          // immediate
 		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        data,
+			DeliveryMode: amqp.Transient,
+			ContentType:  "text/plain",
+			Body:         data,
 		},
 	)
 }
@@ -59,7 +60,7 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 			msgs, err := r.ch.Consume(
 				r.queue.Name,   // queue
 				r.consumerName, // consumer
-				false,          // auto-ack
+				true,           // auto-ack
 				false,          // exclusive
 				false,          // no-local
 				false,          // no-wait
@@ -73,8 +74,7 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 		}
 		rm := <-r.channelConsuming
 		receivedMessage = rm.Body
-		err := r.ch.Ack(rm.DeliveryTag, false)
-		received <- err
+		received <- nil
 	}()
 	err := <-received
 	if err != nil {
