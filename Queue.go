@@ -38,10 +38,10 @@ func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 	}
 	ctx := context.Background()
 	return r.ch.PublishWithContext(ctx,
-		"",           // exchange
-		r.queue.Name, // routing key
-		false,        // mandatory
-		false,        // immediate
+		r.consumerName, // exchange
+		"",             // routing key
+		false,          // mandatory
+		false,          // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        data,
