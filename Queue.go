@@ -58,13 +58,13 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	go func() {
 		if r.channelConsuming == nil {
 			msgs, err := r.ch.Consume(
-				r.consumerName, // queue
-				"",             // consumer
-				true,           // auto-ack
-				false,          // exclusive
-				false,          // no-local
-				false,          // no-wait
-				nil,            // args
+				r.queue.Name, // queue
+				"",           // consumer
+				true,         // auto-ack
+				false,        // exclusive
+				false,        // no-local
+				false,        // no-wait
+				nil,          // args
 			)
 			if err != nil {
 				received <- err
@@ -101,7 +101,7 @@ func (r *rabbitQueue[S, R]) IsEmpty() bool {
 	return existMessage
 }
 
-func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue[S, R], error) {
+func InitializeRabbitQueue[S, R any](consumerName string, connection string) (Queue[S, R], error) {
 	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -119,9 +119,9 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 	r := rabbitQueue[S, R]{
 		conn:         conn,
 		ch:           ch,
-		consumerName: queueName,
+		consumerName: consumerName,
 	}
-	if err := ch.ExchangeDeclare(queueName, "topic", true, false, false, false, nil); err != nil {
+	if err := ch.ExchangeDeclare(consumerName, "topic", true, false, false, false, nil); err != nil {
 		conn.Close()
 		FailOnError(err, "Failed to declare exchange")
 		return nil, err
@@ -140,6 +140,7 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 		FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}
+	ch.QueueBind(q.Name, "", consumerName, false, nil)
 	r.queue = &q
 	return &r, nil
 }
