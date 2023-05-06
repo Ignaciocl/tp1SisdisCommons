@@ -98,7 +98,7 @@ func (r *rabbitQueue[S, R]) IsEmpty() bool {
 	if err != nil {
 		FailOnError(err, "could not validate if queue is empty")
 	}
-	return existMessage
+	return !existMessage
 }
 
 func InitializeRabbitQueue[S, R any](consumerName string, connection string) (Queue[S, R], error) {
