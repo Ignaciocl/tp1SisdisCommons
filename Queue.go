@@ -121,6 +121,12 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 		ch:           ch,
 		consumerName: queueName,
 	}
+	if err := ch.ExchangeDeclare(queueName, "topic", true, false, false, false, nil); err != nil {
+		conn.Close()
+		FailOnError(err, "Failed to declare exchange")
+		return nil, err
+	}
+
 	q, err := ch.QueueDeclare(
 		"",    // name
 		true,  // durable
