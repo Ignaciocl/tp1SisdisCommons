@@ -58,8 +58,8 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	go func() {
 		if r.channelConsuming == nil {
 			msgs, err := r.ch.Consume(
-				r.queue.Name,   // queue
-				r.consumerName, // consumer
+				r.consumerName, // queue
+				"",             // consumer
 				true,           // auto-ack
 				false,          // exclusive
 				false,          // no-local
