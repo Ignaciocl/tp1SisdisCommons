@@ -121,7 +121,7 @@ func InitializeRabbitQueue[S, R any](consumerName string, connection string) (Qu
 		ch:           ch,
 		consumerName: consumerName,
 	}
-	if err := ch.ExchangeDeclare(consumerName, "topic", true, false, false, false, nil); err != nil {
+	if err := ch.ExchangeDeclare(consumerName, "direct", true, false, false, false, nil); err != nil {
 		conn.Close()
 		FailOnError(err, "Failed to declare exchange")
 		return nil, err
