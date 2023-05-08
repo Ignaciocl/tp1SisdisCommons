@@ -38,10 +38,10 @@ func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 	}
 	ctx := context.Background()
 	return r.ch.PublishWithContext(ctx,
-		r.consumerName, // exchange
-		"",             // routing key
-		false,          // mandatory
-		false,          // immediate
+		r.queue.Name, // exchange
+		"",           // routing key
+		false,        // mandatory
+		false,        // immediate
 		amqp.Publishing{
 			DeliveryMode: amqp.Transient,
 			ContentType:  "text/plain",
@@ -101,7 +101,7 @@ func (r *rabbitQueue[S, R]) IsEmpty() bool {
 	return !existMessage
 }
 
-func InitializeRabbitQueue[S, R any](consumerName string, connection string) (Queue[S, R], error) {
+func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue[S, R], error) {
 	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -119,28 +119,22 @@ func InitializeRabbitQueue[S, R any](consumerName string, connection string) (Qu
 	r := rabbitQueue[S, R]{
 		conn:         conn,
 		ch:           ch,
-		consumerName: consumerName,
-	}
-	if err := ch.ExchangeDeclare(consumerName, "direct", true, false, false, false, nil); err != nil {
-		conn.Close()
-		FailOnError(err, "Failed to declare exchange")
-		return nil, err
+		consumerName: queueName,
 	}
 
 	q, err := ch.QueueDeclare(
-		"",    // name
-		true,  // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,   // arguments
+		queueName, // name
+		true,      // durable
+		false,     // delete when unused
+		false,     // exclusive
+		false,     // no-wait
+		nil,       // arguments
 	)
 	if err != nil {
 		r.Close()
 		FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}
-	ch.QueueBind(q.Name, "", consumerName, false, nil)
 	r.queue = &q
 	return &r, nil
 }
