@@ -60,7 +60,7 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 			msgs, err := r.ch.Consume(
 				r.queue.Name, // queue
 				"",           // consumer
-				true,         // auto-ack
+				false,        // auto-ack
 				false,        // exclusive
 				false,        // no-local
 				false,        // no-wait
@@ -74,7 +74,7 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 		}
 		rm := <-r.channelConsuming
 		receivedMessage = rm.Body
-		received <- nil
+		received <- r.ch.Ack(rm.DeliveryTag, false)
 	}()
 	err := <-received
 	if err != nil {
