@@ -94,11 +94,8 @@ func (r *rabbitQueue[S, R]) Close() error {
 }
 
 func (r *rabbitQueue[S, R]) IsEmpty() bool {
-	_, existMessage, err := r.ch.Get(r.queue.Name, false)
-	if err != nil {
-		FailOnError(err, "could not validate if queue is empty")
-	}
-	return !existMessage
+	amount := len(r.channelConsuming)
+	return amount == 0
 }
 
 func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue[S, R], error) {
