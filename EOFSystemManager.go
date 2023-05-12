@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"log"
-	"net"
 )
 
 type ValidatorStillUsingData interface {
@@ -24,12 +22,12 @@ type triggerEOF struct {
 }
 
 type answerEofOk struct {
-	addr            string
 	conn            *amqp.Connection
 	ch              *amqp.Channel
 	msgs            <-chan amqp.Delivery
 	finish          chan struct{}
 	finishedHearing chan struct{}
+	eofListener     Queue[any, any]
 }
 
 func (a *answerEofOk) AnswerEofOk(value ValidatorStillUsingData) {
@@ -45,7 +43,6 @@ func (a *answerEofOk) AnswerEofOk(value ValidatorStillUsingData) {
 		}
 	}()
 
-	log.Printf(" [*] Waiting for logs. To exit press CTRL+C")
 	data := <-a.finish
 	a.finishedHearing <- data
 }
@@ -57,13 +54,7 @@ func (a *answerEofOk) Close() {
 }
 
 func (a *answerEofOk) sendEOFCorrect() {
-	udpAddr, err := net.ResolveUDPAddr("udp", a.addr)
-	if err != nil {
-		FailOnError(err, "could not parse address")
-	}
-	conn, _ := net.DialUDP("udp", nil, udpAddr)
-	conn.Write([]byte("ok"))
-	conn.Close()
+	a.eofListener.SendMessage(struct{}{})
 }
 
 func CreateConsumerEOF(connection string, queueType string) (WaitForEof, error) {
@@ -121,5 +112,6 @@ func CreateConsumerEOF(connection string, queueType string) (WaitForEof, error) 
 		nil,    // args
 	)
 	FailOnError(err, "Failed to register a consumer")
-	return &answerEofOk{ch: ch, conn: conn, msgs: msgs, finish: make(chan struct{}, 1), finishedHearing: make(chan struct{}, 1), addr: "manager:10000"}, nil
+	eofQ, _ := InitializeRabbitQueue[any, any]("eofListener", connection)
+	return &answerEofOk{ch: ch, conn: conn, msgs: msgs, finish: make(chan struct{}, 1), finishedHearing: make(chan struct{}, 1), eofListener: eofQ}, nil
 }
