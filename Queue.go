@@ -94,8 +94,8 @@ func (r *rabbitQueue[S, R]) Close() error {
 }
 
 func (r *rabbitQueue[S, R]) IsEmpty() bool {
-	amount := len(r.channelConsuming) + r.queue.Messages // if we have messages on the channel or messages not ACKed.
-	return amount == 0
+	_, ok, _ := r.ch.Get(r.queue.Name, false)
+	return len(r.channelConsuming) == 0 && !ok
 }
 
 func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue[S, R], error) {
