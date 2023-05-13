@@ -12,23 +12,30 @@ type EofData struct {
 }
 
 type WaitForEof interface {
-	AnswerEofOk(key string) // blocking method
+	AnswerEofOk(key string, actionable Actionable)
 	Close()
+}
+
+type Actionable interface {
+	DoActionIfEOF()
 }
 
 type answerEofOk struct {
 	nextToNotify    []string
-	queueInfo       Queue[EOFSender, EOFSender]
+	queueInfo       EOFSender
 	necessaryAmount int
 	current         map[string]int
 }
 
-func (a *answerEofOk) AnswerEofOk(key string) {
+func (a *answerEofOk) AnswerEofOk(key string, actionable Actionable) {
 	if d, ok := a.current[key]; ok {
 		d += 1
 		if d >= a.necessaryAmount {
 			d = 0
 			a.sendEOFCorrect(key)
+			if actionable != nil {
+				actionable.DoActionIfEOF()
+			}
 		}
 		a.current[key] = d
 	} else {
@@ -50,7 +57,7 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 			EOF:            true,
 			IdempotencyKey: key,
 		})
-		a.queueInfo.getChannel().PublishWithContext(ctx,
+		a.queueInfo.GetChannel().PublishWithContext(ctx,
 			v, // exchange
 			"",
 			false, // mandatory
@@ -64,10 +71,12 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 }
 
 type EOFSender interface {
+	GetChannel() *amqp.Channel
+	GetQueue() *amqp.Queue
 }
 
-func CreateConsumerEOF(nextInLine []string, queueType string, queue Queue[EOFSender, EOFSender], necessaryAmount int) (WaitForEof, error) {
-	if err := queue.getChannel().ExchangeDeclare(
+func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, necessaryAmount int) (WaitForEof, error) {
+	if err := queue.GetChannel().ExchangeDeclare(
 		queueType, // name
 		"fanout",  // type
 		true,      // durable
@@ -79,8 +88,8 @@ func CreateConsumerEOF(nextInLine []string, queueType string, queue Queue[EOFSen
 		return nil, err
 	}
 
-	err := queue.getChannel().QueueBind(
-		queue.getQueue().Name, // queue name
+	err := queue.GetChannel().QueueBind(
+		queue.GetQueue().Name, // queue name
 		"",                    // routing key
 		queueType,             // exchange
 		false,
