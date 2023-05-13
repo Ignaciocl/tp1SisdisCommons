@@ -7,7 +7,7 @@ import (
 )
 
 type Publisher interface {
-	Publish(targetPublic string, body []byte) error
+	Publish(targetPublic string, body []byte, key string) error
 	Close()
 }
 
@@ -16,7 +16,7 @@ type publisher struct {
 	ch   *amqp.Channel
 }
 
-func (p *publisher) Publish(targetPublic string, body []byte) error {
+func (p *publisher) Publish(targetPublic string, body []byte, key string) error {
 	err := p.ch.ExchangeDeclare(
 		targetPublic, // name
 		"fanout",     // type
@@ -30,7 +30,7 @@ func (p *publisher) Publish(targetPublic string, body []byte) error {
 	ctx := context.Background()
 	return p.ch.PublishWithContext(ctx,
 		targetPublic, // exchange
-		"",
+		key,
 		false, // mandatory
 		false, // immediate
 		amqp.Publishing{

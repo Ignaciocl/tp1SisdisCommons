@@ -77,13 +77,13 @@ type EOFSender interface {
 
 func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, necessaryAmount int) (WaitForEof, error) {
 	if err := queue.GetChannel().ExchangeDeclare(
-		queueType, // name
-		"fanout",  // type
-		true,      // durable
-		false,     // auto-deleted
-		false,     // internal
-		false,     // no-wait
-		nil,       // arguments
+		queue.GetQueue().Name, // name
+		"fanout",              // type
+		true,                  // durable
+		false,                 // auto-deleted
+		false,                 // internal
+		false,                 // no-wait
+		nil,                   // arguments
 	); err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, n
 	err := queue.GetChannel().QueueBind(
 		queue.GetQueue().Name, // queue name
 		"",                    // routing key
-		queueType,             // exchange
+		queue.GetQueue().Name, // exchange
 		false,
 		nil,
 	)
