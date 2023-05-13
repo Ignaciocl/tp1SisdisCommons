@@ -20,6 +20,8 @@ type Queue[S any, R any] interface {
 	ReceiveMessage() (R, error) // blocking until message is received
 	Close() error
 	IsEmpty() bool
+	getChannel() *amqp.Channel
+	getQueue() *amqp.Queue
 }
 
 type rabbitQueue[S any, R any] struct {
@@ -30,6 +32,13 @@ type rabbitQueue[S any, R any] struct {
 	consumerName     string
 }
 
+func (r *rabbitQueue[S, R]) getChannel() *amqp.Channel {
+	return r.ch
+}
+
+func (r *rabbitQueue[S, R]) getQueue() *amqp.Queue {
+	return r.queue
+}
 func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 	data, err := json.Marshal(message)
 	if err != nil {

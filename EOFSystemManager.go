@@ -1,78 +1,73 @@
 package commons
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type ValidatorStillUsingData interface {
-	IsStillUsingNecessaryDataForFile(file string, city string) bool
+type EofData struct {
+	EOF            bool   `json:"eof"`
+	IdempotencyKey string `json:"idempotencyKey"`
 }
 
 type WaitForEof interface {
-	AnswerEofOk(value ValidatorStillUsingData) // blocking method
+	AnswerEofOk(key string) // blocking method
 	Close()
 }
 
-type triggerEOF struct {
-	File    string `json:"file"`
-	City    string `json:"city"`
-	Sigterm bool   `json:"sigterm"`
-}
-
 type answerEofOk struct {
-	conn            *amqp.Connection
-	ch              *amqp.Channel
-	msgs            <-chan amqp.Delivery
-	finish          chan struct{}
-	finishedHearing chan struct{}
-	eofListener     Queue[any, any]
+	nextToNotify    []string
+	queueInfo       Queue[EOFSender, EOFSender]
+	necessaryAmount int
+	current         map[string]int
 }
 
-func (a *answerEofOk) AnswerEofOk(value ValidatorStillUsingData) {
-	go func() {
-		var trigger triggerEOF
-		for d := range a.msgs {
-			if err := json.Unmarshal(d.Body, &trigger); err != nil {
-				FailOnError(err, "could not understand message")
-			}
-			if value.IsStillUsingNecessaryDataForFile(trigger.File, trigger.City) {
-				a.sendEOFCorrect()
-			}
+func (a *answerEofOk) AnswerEofOk(key string) {
+	if d, ok := a.current[key]; ok {
+		d += 1
+		if d >= a.necessaryAmount {
+			d = 0
+			a.sendEOFCorrect(key)
 		}
-	}()
-
-	data := <-a.finish
-	a.finishedHearing <- data
+		a.current[key] = d
+	} else {
+		a.current[key] = 1
+	}
 }
 
 func (a *answerEofOk) Close() {
-	a.finish <- struct{}{}
-	a.Close()
-	a.ch.Close()
+
 }
 
-func (a *answerEofOk) sendEOFCorrect() {
-	a.eofListener.SendMessage(struct{}{})
+func (a *answerEofOk) sendEOFCorrect(key string) {
+	if a.nextToNotify == nil {
+		return
+	}
+	for _, v := range a.nextToNotify {
+		ctx := context.Background()
+		body, _ := json.Marshal(EofData{
+			EOF:            true,
+			IdempotencyKey: key,
+		})
+		a.queueInfo.getChannel().PublishWithContext(ctx,
+			v, // exchange
+			"",
+			false, // mandatory
+			false, // immediate
+			amqp.Publishing{
+				ContentType: "text/plain",
+				Body:        body,
+			},
+		)
+	}
 }
 
-func CreateConsumerEOF(connection string, queueType string) (WaitForEof, error) {
-	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		FailOnError(err, "Failed to connect to RabbitMQ")
-		conn.Close()
-		return nil, err
-	}
-	ch, err := conn.Channel()
-	if err != nil {
-		FailOnError(err, "Failed to connect to RabbitMQ")
-		ch.Close()
-		conn.Close()
-		return nil, err
-	}
-	if err := ch.ExchangeDeclare(
+type EOFSender interface {
+}
+
+func CreateConsumerEOF(nextInLine []string, queueType string, queue Queue[EOFSender, EOFSender], necessaryAmount int) (WaitForEof, error) {
+	if err := queue.getChannel().ExchangeDeclare(
 		queueType, // name
 		"fanout",  // type
 		true,      // durable
@@ -83,35 +78,15 @@ func CreateConsumerEOF(connection string, queueType string) (WaitForEof, error) 
 	); err != nil {
 		return nil, err
 	}
-	q, err := ch.QueueDeclare(
-		"",    // name
-		false, // durable
-		false, // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
-	FailOnError(err, "Failed to declare a queue")
 
-	err = ch.QueueBind(
-		q.Name,    // queue name
-		"",        // routing key
-		queueType, // exchange
+	err := queue.getChannel().QueueBind(
+		queue.getQueue().Name, // queue name
+		"",                    // routing key
+		queueType,             // exchange
 		false,
 		nil,
 	)
-	FailOnError(err, "Failed to bind a queue")
-
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	FailOnError(err, "Failed to register a consumer")
-	eofQ, _ := InitializeRabbitQueue[any, any]("eofListener", connection)
-	return &answerEofOk{ch: ch, conn: conn, msgs: msgs, finish: make(chan struct{}, 1), finishedHearing: make(chan struct{}, 1), eofListener: eofQ}, nil
+	FailOnError(err, "couldn't bind to target")
+	kv := make(map[string]int, 0)
+	return &answerEofOk{queueInfo: queue, nextToNotify: nextInLine, necessaryAmount: necessaryAmount, current: kv}, nil
 }
