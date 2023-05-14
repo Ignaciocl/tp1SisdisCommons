@@ -33,6 +33,7 @@ type rabbitQueue[S any, R any] struct {
 	consumerName     string
 	maxAmount        int
 	currentAmount    int
+	key              string
 }
 
 func (r *rabbitQueue[S, R]) GetChannel() *amqp.Channel {
@@ -74,6 +75,11 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 
 	go func() {
 		if r.channelConsuming == nil {
+			err := r.ch.ExchangeDeclare(r.consumerName, "topic", true, false, false, false, nil)
+			FailOnError(err, "couldn't declare exchange")
+			err = r.ch.QueueBind(r.queue.Name, r.key, r.consumerName, false, nil)
+			FailOnError(err, "coult not bind queue")
+
 			msgs, err := r.ch.Consume(
 				r.queue.Name, // queue
 				"",           // consumer
@@ -136,8 +142,6 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string, key st
 		consumerName: queueName,
 	}
 
-	err = ch.ExchangeDeclare(queueName, "topic", true, false, false, false, nil)
-	FailOnError(err, "couldn't declare exchange")
 	q, err := ch.QueueDeclare(
 		"",    // name
 		true,  // durable
@@ -151,8 +155,7 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string, key st
 		FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}
-	err = ch.QueueBind(q.Name, key, queueName, false, nil)
-	FailOnError(err, "coult not bind queue")
 	r.queue = &q
+	r.key = key
 	return &r, nil
 }
