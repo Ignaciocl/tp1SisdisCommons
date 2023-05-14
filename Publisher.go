@@ -16,15 +16,15 @@ type publisher struct {
 	ch   *amqp.Channel
 }
 
-func (p *publisher) Publish(targetPublic string, body []byte, key string) error {
+func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOfPublish string) error {
 	err := p.ch.ExchangeDeclare(
-		targetPublic, // name
-		"fanout",     // type
-		true,         // durable
-		false,        // auto-deleted
-		false,        // internal
-		false,        // no-wait
-		nil,          // arguments
+		targetPublic,  // name
+		kindOfPublish, // type
+		true,          // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
 	)
 	FailOnError(err, "Failed to declare an exchange")
 	ctx := context.Background()
