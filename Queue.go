@@ -59,7 +59,7 @@ func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 		r.consumerName, // exchange
 		key,            // routing key
 		false,          // mandatory
-		true,           // immediate
+		false,          // immediate
 		amqp.Publishing{
 			DeliveryMode: amqp.Transient,
 			ContentType:  "text/plain",

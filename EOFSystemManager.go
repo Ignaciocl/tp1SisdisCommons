@@ -62,7 +62,7 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 		})
 		a.queueInfo.GetChannel().PublishWithContext(ctx,
 			v, // exchange
-			"",
+			"eof",
 			false, // mandatory
 			false, // immediate
 			amqp.Publishing{
@@ -81,7 +81,7 @@ type EOFSender interface {
 func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, necessaryAmount int) (WaitForEof, error) {
 	if err := queue.GetChannel().ExchangeDeclare(
 		queueType, // name
-		"fanout",  // type
+		"topic",   // type
 		true,      // durable
 		false,     // auto-deleted
 		false,     // internal
@@ -93,7 +93,7 @@ func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, n
 
 	err := queue.GetChannel().QueueBind(
 		queue.GetQueue().Name, // queue name
-		"",                    // routing key
+		"eof",                 // routing key
 		queueType,             // exchange
 		false,
 		nil,
