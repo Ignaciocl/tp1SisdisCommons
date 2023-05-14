@@ -30,16 +30,17 @@ type answerEofOk struct {
 func (a *answerEofOk) AnswerEofOk(key string, actionable Actionable) {
 	if d, ok := a.current[key]; ok {
 		d += 1
-		if d >= a.necessaryAmount {
-			d = 0
-			a.sendEOFCorrect(key)
-			if actionable != nil {
-				actionable.DoActionIfEOF()
-			}
-		}
 		a.current[key] = d
 	} else {
 		a.current[key] = 1
+	}
+	d := a.current[key]
+	if d >= a.necessaryAmount {
+		a.current[key] = 0
+		a.sendEOFCorrect(key)
+		if actionable != nil {
+			actionable.DoActionIfEOF()
+		}
 	}
 }
 
@@ -77,13 +78,13 @@ type EOFSender interface {
 
 func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, necessaryAmount int) (WaitForEof, error) {
 	if err := queue.GetChannel().ExchangeDeclare(
-		queue.GetQueue().Name, // name
-		"fanout",              // type
-		true,                  // durable
-		false,                 // auto-deleted
-		false,                 // internal
-		false,                 // no-wait
-		nil,                   // arguments
+		queueType, // name
+		"fanout",  // type
+		true,      // durable
+		false,     // auto-deleted
+		false,     // internal
+		false,     // no-wait
+		nil,       // arguments
 	); err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, n
 	err := queue.GetChannel().QueueBind(
 		queue.GetQueue().Name, // queue name
 		"",                    // routing key
-		queue.GetQueue().Name, // exchange
+		queueType,             // exchange
 		false,
 		nil,
 	)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"strconv"
 )
 
 func FailOnError(err error, msg string) {
@@ -30,6 +31,8 @@ type rabbitQueue[S any, R any] struct {
 	queue            *amqp.Queue
 	channelConsuming <-chan amqp.Delivery
 	consumerName     string
+	maxAmount        int
+	currentAmount    int
 }
 
 func (r *rabbitQueue[S, R]) GetChannel() *amqp.Channel {
@@ -46,11 +49,16 @@ func (r *rabbitQueue[S, R]) SendMessage(message S) error {
 		return errors.New(fmt.Sprintf("data object: %v is not marshable", message))
 	}
 	ctx := context.Background()
+	key := ""
+	if r.maxAmount > 0 {
+		key = strconv.Itoa(r.currentAmount%r.maxAmount + 1)
+		r.currentAmount = r.currentAmount + 1%r.maxAmount
+	}
 	return r.ch.PublishWithContext(ctx,
-		"",           // exchange
-		r.queue.Name, // routing key
-		false,        // mandatory
-		false,        // immediate
+		r.consumerName, // exchange
+		key,            // routing key
+		false,          // mandatory
+		false,          // immediate
 		amqp.Publishing{
 			DeliveryMode: amqp.Transient,
 			ContentType:  "text/plain",
@@ -107,7 +115,7 @@ func (r *rabbitQueue[S, R]) IsEmpty() bool {
 	return len(r.channelConsuming) == 0 && !ok
 }
 
-func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue[S, R], error) {
+func InitializeRabbitQueue[S, R any](queueName string, connection string, key string, amountToPublish int) (Queue[S, R], error) {
 	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
 	conn, err := amqp.Dial(url)
 	if err != nil {
@@ -129,18 +137,21 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string) (Queue
 	}
 
 	q, err := ch.QueueDeclare(
-		queueName, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
+		"",    // name
+		true,  // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
 	)
 	if err != nil {
 		r.Close()
 		FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}
+	ch.ExchangeDeclare(queueName, "direct", true, false, false, false, nil)
+	err = ch.QueueBind(q.Name, key, queueName, false, nil)
+	FailOnError(err, "coult not bind queue")
 	r.queue = &q
 	return &r, nil
 }
