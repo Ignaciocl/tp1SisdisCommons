@@ -23,7 +23,7 @@ type Actionable interface {
 
 type answerEofOk struct {
 	nextToNotify    []string
-	queueInfo       EOFSender
+	queueInfo       PreviousConnection
 	necessaryAmount int
 	current         map[string]int
 }
@@ -73,12 +73,12 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 	}
 }
 
-type EOFSender interface {
+type PreviousConnection interface {
 	GetChannel() *amqp.Channel
 	GetQueue() *amqp.Queue
 }
 
-func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, necessaryAmount int) (WaitForEof, error) {
+func CreateConsumerEOF(nextInLine []string, queueType string, queue PreviousConnection, necessaryAmount int) (WaitForEof, error) {
 	if err := queue.GetChannel().ExchangeDeclare(
 		queueType, // name
 		"topic",   // type

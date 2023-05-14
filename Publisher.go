@@ -12,8 +12,9 @@ type Publisher interface {
 }
 
 type publisher struct {
-	conn *amqp.Connection
-	ch   *amqp.Channel
+	conn          *amqp.Connection
+	ch            *amqp.Channel
+	useConnection bool
 }
 
 func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOfPublish string) error {
@@ -41,25 +42,33 @@ func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOf
 }
 
 func (p *publisher) Close() {
-	p.Close()
-	p.ch.Close()
+	if !p.useConnection {
+		p.ch.Close()
+		p.conn.Close()
+	}
 }
 
-func CreatePublisher(connection string) (Publisher, error) {
-
-	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		FailOnError(err, "Failed to connect to RabbitMQ")
-		conn.Close()
-		return nil, err
+func CreatePublisher(connection string, sender PreviousConnection) (Publisher, error) {
+	var ch *amqp.Channel
+	var conn *amqp.Connection
+	if sender != nil {
+		ch = sender.GetChannel()
+	} else {
+		url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
+		var err error
+		conn, err = amqp.Dial(url)
+		if err != nil {
+			FailOnError(err, "Failed to connect to RabbitMQ")
+			conn.Close()
+			return nil, err
+		}
+		ch, err = conn.Channel()
+		if err != nil {
+			FailOnError(err, "Failed to connect to RabbitMQ")
+			ch.Close()
+			conn.Close()
+			return nil, err
+		}
 	}
-	ch, err := conn.Channel()
-	if err != nil {
-		FailOnError(err, "Failed to connect to RabbitMQ")
-		ch.Close()
-		conn.Close()
-		return nil, err
-	}
-	return &publisher{ch: ch, conn: conn}, nil
+	return &publisher{ch: ch, conn: conn, useConnection: sender != nil}, nil
 }
