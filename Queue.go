@@ -136,6 +136,8 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string, key st
 		consumerName: queueName,
 	}
 
+	err = ch.ExchangeDeclare(queueName, "topic", true, false, false, false, nil)
+	FailOnError(err, "couldn't declare exchange")
 	q, err := ch.QueueDeclare(
 		"",    // name
 		true,  // durable
@@ -149,7 +151,6 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string, key st
 		FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}
-	ch.ExchangeDeclare(queueName, "direct", true, false, false, false, nil)
 	err = ch.QueueBind(q.Name, key, queueName, false, nil)
 	FailOnError(err, "coult not bind queue")
 	r.queue = &q
