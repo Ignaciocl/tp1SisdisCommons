@@ -7,7 +7,7 @@ import (
 )
 
 type Publisher interface {
-	Publish(targetPublic string, body []byte, key string) error
+	Publish(targetPublic string, body []byte, key string, kop string) error
 	Close()
 }
 
