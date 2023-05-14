@@ -137,9 +137,11 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string, key st
 		return nil, err
 	}
 	r := rabbitQueue[S, R]{
-		conn:         conn,
-		ch:           ch,
-		consumerName: queueName,
+		conn:          conn,
+		ch:            ch,
+		consumerName:  queueName,
+		currentAmount: 0,
+		maxAmount:     amountToPublish,
 	}
 
 	q, err := ch.QueueDeclare(
