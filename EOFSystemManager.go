@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	amqp "github.com/rabbitmq/amqp091-go"
+	log "github.com/sirupsen/logrus"
 )
 
 type EofData struct {
@@ -36,6 +37,7 @@ func (a *answerEofOk) AnswerEofOk(key string, actionable Actionable) {
 	}
 	d := a.current[key]
 	if d >= a.necessaryAmount {
+		log.Infof("received %d times the key: %s, map is: %v", d, key, a.current)
 		a.current[key] = 0
 		a.sendEOFCorrect(key)
 		if actionable != nil {
@@ -98,5 +100,6 @@ func CreateConsumerEOF(nextInLine []string, queueType string, queue EOFSender, n
 	)
 	FailOnError(err, "couldn't bind to target")
 	kv := make(map[string]int, 0)
+	log.Infof("queue for manager eof %s created", queueType)
 	return &answerEofOk{queueInfo: queue, nextToNotify: nextInLine, necessaryAmount: necessaryAmount, current: kv}, nil
 }
