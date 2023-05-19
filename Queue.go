@@ -12,7 +12,11 @@ import (
 
 func FailOnError(err error, msg string) {
 	if err != nil {
-		log.Panicf("%s: %s", msg, err)
+		if errors.Is(err, amqp.ErrClosed) {
+			log.Infof("Channel closed when try to throw error: %v", err)
+		} else {
+			log.Panicf("%s: %s", msg, err)
+		}
 	}
 }
 
@@ -116,9 +120,7 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	}()
 	err := <-received
 	if err != nil {
-		if errors.Is(err, amqp.ErrClosed) {
-			log.Infof("failed for channel closed reasons %v, if we ask if channel is closed then: %v", err, r.ch.IsClosed())
-		} else {
+		if !errors.Is(err, amqp.ErrClosed) {
 			FailOnError(err, "Failed to receive a message")
 		}
 		return receivable, err
