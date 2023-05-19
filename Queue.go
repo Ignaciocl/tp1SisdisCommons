@@ -116,7 +116,11 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 	}()
 	err := <-received
 	if err != nil {
-		FailOnError(err, "Failed to receive a message")
+		if errors.Is(err, amqp.ErrClosed) {
+			log.Infof("failed for channel closed reasons %v, if we ask if channel is closed then: %v", err, r.ch.IsClosed())
+		} else {
+			FailOnError(err, "Failed to receive a message")
+		}
 		return receivable, err
 	}
 	if err = json.Unmarshal(receivedMessage, &receivable); err != nil {
