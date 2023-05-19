@@ -6,13 +6,21 @@ import (
 	"errors"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 )
 
 func FailOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err)
+	}
+}
+
+func (r *rabbitQueue[S, R]) failOnErrorIfChannelOpen(err error, msg string) {
+	if r.ch.IsClosed() {
+		log.Infof("error happened when channel is closed %v with message: %s", err, msg)
+	} else {
+		FailOnError(err, msg)
 	}
 }
 

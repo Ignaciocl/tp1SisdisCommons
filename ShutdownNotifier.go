@@ -37,6 +37,9 @@ func (g graceful) WaitForSigterm() {
 }
 
 func (g graceful) SignalSigterm() {
+	if g.ch.IsClosed() {
+		return
+	}
 	ctx := context.Background()
 	g.ch.PublishWithContext(ctx,
 		"sigterm", // exchange

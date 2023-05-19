@@ -28,5 +28,4 @@ func RecoverFromPanic(manager GracielaManager, connection string) {
 		log.Infof("recovered from panic at %v", r)
 		manager.SignalSigterm()
 	}
-
 }
