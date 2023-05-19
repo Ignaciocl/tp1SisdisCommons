@@ -42,6 +42,7 @@ type rabbitQueue[S any, R any] struct {
 	maxAmount        int
 	currentAmount    int
 	key              string
+	closingChannel   <-chan *amqp.Error
 }
 
 func (r *rabbitQueue[S, R]) GetChannel() *amqp.Channel {
@@ -103,9 +104,15 @@ func (r *rabbitQueue[S, R]) ReceiveMessage() (R, error) {
 			}
 			r.channelConsuming = msgs
 		}
-		rm := <-r.channelConsuming
-		receivedMessage = rm.Body
-		received <- r.ch.Ack(rm.DeliveryTag, false)
+		select {
+		case d := <-r.channelConsuming:
+			rm := d
+			receivedMessage = rm.Body
+			received <- r.ch.Ack(rm.DeliveryTag, false)
+		case _ = <-r.closingChannel:
+			receivedMessage = []byte("{}")
+			received <- nil
+		}
 	}()
 	err := <-received
 	if err != nil {
@@ -165,7 +172,10 @@ func InitializeRabbitQueue[S, R any](queueName string, connection string, key st
 		FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}
+	errChannel := make(chan *amqp.Error, 1)
+	ch.NotifyClose(errChannel)
 	r.queue = &q
 	r.key = key
+	r.closingChannel = errChannel
 	return &r, nil
 }
