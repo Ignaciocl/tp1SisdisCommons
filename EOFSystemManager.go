@@ -3,6 +3,8 @@ package commons
 import (
 	"context"
 	"encoding/json"
+	"github.com/Ignaciocl/tp1SisdisCommons/queue"
+	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 	log "github.com/sirupsen/logrus"
 )
@@ -23,7 +25,7 @@ type Actionable interface {
 
 type answerEofOk struct {
 	nextToNotify    []NextToNotify
-	queueInfo       PreviousConnection
+	queueInfo       queue.ConnectionRetrievable
 	necessaryAmount int
 	current         map[string]int
 }
@@ -79,17 +81,12 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 	}
 }
 
-type PreviousConnection interface {
-	GetChannel() *amqp.Channel
-	GetQueue() *amqp.Queue
-}
-
 type NextToNotify struct {
 	Name       string
-	Connection PreviousConnection // Notify with a channel previously created, default is the current
+	Connection queue.ConnectionRetrievable // Notify with a channel previously created, default is the current
 }
 
-func CreateConsumerEOF(nextInLine []NextToNotify, queueType string, queue PreviousConnection, necessaryAmount int) (WaitForEof, error) {
+func CreateConsumerEOF(nextInLine []NextToNotify, queueType string, queue queue.ConnectionRetrievable, necessaryAmount int) (WaitForEof, error) {
 	if err := queue.GetChannel().ExchangeDeclare(
 		queueType, // name
 		"topic",   // type
@@ -109,7 +106,7 @@ func CreateConsumerEOF(nextInLine []NextToNotify, queueType string, queue Previo
 		false,
 		nil,
 	)
-	FailOnError(err, "couldn't bind to target")
+	utils.FailOnError(err, "couldn't bind to target")
 	kv := make(map[string]int, 0)
 	log.Infof("queue for manager eof %s created", queueType)
 	return &answerEofOk{queueInfo: queue, nextToNotify: nextInLine, necessaryAmount: necessaryAmount, current: kv}, nil

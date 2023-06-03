@@ -3,6 +3,7 @@ package commons
 import (
 	"context"
 	"fmt"
+	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -29,7 +30,7 @@ func (g graceful) WaitForSigterm() {
 		nil,          // args
 	)
 	if err != nil {
-		FailOnError(err, "error initializing sigterm waiter")
+		utils.FailOnError(err, "error initializing sigterm waiter")
 	}
 	for _ = range msgs {
 		return
@@ -62,13 +63,13 @@ func CreateGracefulManager(connection string) (GracielaManager, error) {
 	url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
 	conn, err := amqp.Dial(url)
 	if err != nil {
-		FailOnError(err, "Failed to connect to RabbitMQ")
+		utils.LogError(err, "Failed to connect to RabbitMQ")
 		conn.Close()
 		return nil, err
 	}
 	ch, err := conn.Channel()
 	if err != nil {
-		FailOnError(err, "Failed to connect to RabbitMQ")
+		utils.LogError(err, "Failed to connect to RabbitMQ")
 		conn.Close()
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func CreateGracefulManager(connection string) (GracielaManager, error) {
 		nil,       // arguments
 	)
 	if err != nil {
-		FailOnError(err, "Failed to declare an exchange")
+		utils.LogError(err, "Failed to declare an exchange")
 		ch.Close()
 		conn.Close()
 		return nil, err

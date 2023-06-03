@@ -2,7 +2,8 @@ package commons
 
 import (
 	"context"
-	"fmt"
+	"github.com/Ignaciocl/tp1SisdisCommons/queue"
+	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -12,13 +13,11 @@ type Publisher interface {
 }
 
 type publisher struct {
-	conn          *amqp.Connection
-	ch            *amqp.Channel
-	useConnection bool
+	data queue.ConnectionRetrievable
 }
 
 func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOfPublish string) error {
-	err := p.ch.ExchangeDeclare(
+	err := p.data.GetChannel().ExchangeDeclare(
 		targetPublic,  // name
 		kindOfPublish, // type
 		true,          // durable
@@ -27,9 +26,9 @@ func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOf
 		false,         // no-wait
 		nil,           // arguments
 	)
-	FailOnError(err, "Failed to declare an exchange")
+	utils.FailOnError(err, "Failed to declare an exchange")
 	ctx := context.Background()
-	return p.ch.PublishWithContext(ctx,
+	return p.data.GetChannel().PublishWithContext(ctx,
 		targetPublic, // exchange
 		key,
 		false, // mandatory
@@ -42,33 +41,10 @@ func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOf
 }
 
 func (p *publisher) Close() {
-	if !p.useConnection {
-		p.ch.Close()
-		p.conn.Close()
-	}
+	p.data.Close()
 }
 
-func CreatePublisher(connection string, sender PreviousConnection) (Publisher, error) {
-	var ch *amqp.Channel
-	var conn *amqp.Connection
-	if sender != nil {
-		ch = sender.GetChannel()
-	} else {
-		url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
-		var err error
-		conn, err = amqp.Dial(url)
-		if err != nil {
-			FailOnError(err, "Failed to connect to RabbitMQ")
-			conn.Close()
-			return nil, err
-		}
-		ch, err = conn.Channel()
-		if err != nil {
-			FailOnError(err, "Failed to connect to RabbitMQ")
-			ch.Close()
-			conn.Close()
-			return nil, err
-		}
-	}
-	return &publisher{ch: ch, conn: conn, useConnection: sender != nil}, nil
+func CreatePublisher(connection string, sender queue.ConnectionRetrievable) (Publisher, error) {
+	c, err := queue.InitializeConnectionRabbit(sender, connection)
+	return &publisher{c}, err
 }
