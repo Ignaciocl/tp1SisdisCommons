@@ -7,10 +7,10 @@ import (
 )
 
 type SocketConfig struct {
-	Protocol      string
-	ServerAddress string
-	ServerACK     string
-	PacketLimit   int
+	Protocol    string
+	NodeAddress string
+	NodeACK     string
+	PacketLimit int
 }
 
 type socket struct {
@@ -28,7 +28,7 @@ func NewSocket(socketConfig SocketConfig) Client {
 }
 
 func (s *socket) OpenConnection() error {
-	connection, err := net.Dial(s.config.Protocol, s.config.ServerAddress)
+	connection, err := net.Dial(s.config.Protocol, s.config.NodeAddress)
 	if err != nil {
 		log.Errorf(
 			"action: connect | result: fail | error: %v",
@@ -53,7 +53,7 @@ func (s *socket) Close() error {
 }
 
 func (s *socket) StartListener() error {
-	listener, err := net.Listen(s.config.Protocol, s.config.ServerAddress)
+	listener, err := net.Listen(s.config.Protocol, s.config.NodeAddress)
 	if err != nil {
 		log.Errorf(
 			"action: get listener | result: fail | error: %v",
