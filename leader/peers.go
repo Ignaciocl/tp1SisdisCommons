@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Ignaciocl/tp1SisdisCommons/client"
+	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -77,6 +78,8 @@ func (pm *PeerMap) Write(ID string, msg Message) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	d, _ := json.Marshal(msg)
+
+	log.Infof("sending: %s to: %s", string(d), ID)
 
 	if p, ok := pm.peers[ID]; !ok {
 		return fmt.Errorf("write: peer %s not found in PeerMap", ID)

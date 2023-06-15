@@ -1,10 +1,13 @@
 package client
 
 import (
-	"github.com/Ignaciocl/tp1SisdisCommons/utils"
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"strconv"
 )
+
+const AmountBytesPrefix = 5
 
 type SocketConfig struct {
 	Protocol    string
@@ -65,7 +68,7 @@ func (s *socket) StartListener() error {
 	return nil
 }
 
-func (s *socket) AcceptNewConnections() (net.Conn, error) {
+func (s *socket) AcceptNewConnections() (Receiver, error) {
 	connection, err := s.listener.Accept()
 	if err != nil {
 		log.Errorf(
@@ -74,60 +77,81 @@ func (s *socket) AcceptNewConnections() (net.Conn, error) {
 		)
 		return nil, err
 	}
-	return connection, nil
+	return &socket{connection: connection, config: SocketConfig{PacketLimit: s.config.PacketLimit, NodeACK: s.config.NodeACK}}, nil
 }
 
-func (s *socket) Send(dataAsBytes []byte) error {
-	messageLength := len(dataAsBytes)
-
-	shortWriteAvoidance := 0
-	amountOfBytesSent := 0
-
-	for amountOfBytesSent < messageLength {
-		lowerLimit := amountOfBytesSent - shortWriteAvoidance
-		upperLimit := lowerLimit + s.config.PacketLimit
-
-		if upperLimit > messageLength {
-			upperLimit = messageLength
+func (s *socket) Send(bytes []byte) error {
+	size := len(bytes)
+	bytesAmount := []byte(fmt.Sprintf("%05d", size))
+	bytesToSend := append(bytesAmount, bytes...)
+	eightKB := 8 * 1024
+	size = len(bytesToSend)
+	for i := 0; i <= len(bytesToSend); i += eightKB {
+		var sending []byte
+		if size < i+eightKB {
+			sending = bytesToSend[i:size]
+		} else {
+			sending = bytesToSend[i : i+eightKB]
 		}
-
-		bytesToSend := dataAsBytes[lowerLimit:upperLimit]
-		bytesSent, err := s.connection.Write(bytesToSend)
+		amountSent, err := s.connection.Write(sending)
 		if err != nil {
+			log.Printf("weird error happened, stopping but something should be checked: %v", err)
 			return err
 		}
-		amountOfBytesSent += bytesSent
-		shortWriteAvoidance = len(bytesToSend) - bytesSent
+		if dif := len(sending) - amountSent; dif > 0 { // Avoiding short write
+			i -= dif
+		}
 	}
-
 	return nil
 }
 
-func (s *socket) Listen(targetEndMessage string, finMessages []string) ([]byte, error) {
-	message := make([]byte, 0) // Will contain the message
-
-	for {
-		buffer := make([]byte, s.config.PacketLimit)
-		bytesRead, err := s.connection.Read(buffer)
-		log.Debugf("debug message: %s", string(buffer))
+func (s *socket) Listen() ([]byte, error) {
+	bytesToRead := make([]byte, AmountBytesPrefix)
+	total := make([]byte, 0)
+	if i, err := s.connection.Read(bytesToRead); i < AmountBytesPrefix {
+		bytesToRead = bytesToRead[0:i]
 		if err != nil {
-			log.Errorf("unexpected error while trying to get message: %s", err.Error())
+			log.Errorf("error while reading is %v", err)
 			return nil, err
 		}
-
-		message = append(message, buffer[:bytesRead]...)
-		size := len(message)
-
-		if size >= 4 && string(message[size-4:size]) == targetEndMessage {
-			log.Debugf("Got message correctly!")
-			break
-		}
-
-		if size >= 4 && utils.Contains(string(message), finMessages) {
-			log.Debugf("Got FIN message correctly!")
-			break
+		j := i
+		remaining := AmountBytesPrefix
+		for {
+			r := remaining - j
+			remaining -= j
+			innerBytes := make([]byte, r)
+			j, err = s.connection.Read(innerBytes)
+			if err != nil {
+				log.Errorf("error while receiving amount of bytes of message, ending receiver: %v", err)
+				return nil, err
+			}
+			innerBytes = innerBytes[0:j]
+			bytesToRead = append(bytesToRead, innerBytes...)
+			if j == remaining {
+				break
+			}
 		}
 	}
-
-	return message, nil
+	n, err := strconv.Atoi(string(bytesToRead))
+	if err != nil {
+		log.Errorf("error is %v while converting %s", err, string(bytesToRead))
+	}
+	realN := n
+	received := make([]byte, n)
+	for {
+		if i, err := s.connection.Read(received); err != nil {
+			log.Errorf("error while receiving message, ending receiver: %v", err)
+			return nil, err
+		} else {
+			total = append(total, received[0:i]...)
+			if i < n {
+				n = n - i
+				received = make([]byte, n)
+			} else {
+				break
+			}
+		}
+	}
+	finalData := total[0:realN]
+	return finalData, nil
 }

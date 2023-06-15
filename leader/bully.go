@@ -1,12 +1,12 @@
 package leader
 
 import (
-	"encoding/gob"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Ignaciocl/tp1SisdisCommons/client"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
-	"net"
 	"sync"
 	"time"
 )
@@ -16,8 +16,7 @@ import (
 // NOTE: More details about the `bully algorithm` can be found here
 // https://en.wikipedia.org/wiki/Bully_algorithm .
 type bully struct {
-	*net.TCPListener
-
+	client       client.Client
 	ID           string
 	addr         string
 	coordinator  string
@@ -26,6 +25,7 @@ type bully struct {
 	receiveChan  chan Message
 	electionChan chan Message
 	leaderChan   chan struct{}
+	ack          string
 }
 
 // NewBully returns a new `bully` or an `error`.
@@ -37,12 +37,12 @@ func NewBully(ID, addr, proto string, peers map[string]string) (Leader, error) {
 	b := &bully{
 		ID:           ID,
 		addr:         addr,
-		coordinator:  ID,
+		coordinator:  "0",
 		peers:        NewPeerMap(),
 		mu:           &sync.RWMutex{},
 		electionChan: make(chan Message, 1),
-		receiveChan:  make(chan Message),
-		leaderChan:   make(chan struct{}, 1),
+		receiveChan:  make(chan Message, 10),
+		leaderChan:   make(chan struct{}, 100),
 	}
 
 	if err := b.Listen(proto, addr); err != nil {
@@ -53,22 +53,27 @@ func NewBully(ID, addr, proto string, peers map[string]string) (Leader, error) {
 	return b, nil
 }
 
-// receive is a helper function handling communication between `Peer`s
-// and `b`. It creates a `gob.Decoder` and a from a `io.ReadCloser`. Each
-// `Message` received that is not of type `CLOSE` or `OK` is pushed to
-// `b.receiveChan`.
-//
-// NOTE: this function is an infinite loop.
-func (b *bully) receive(rwc io.ReadCloser) {
+func (b *bully) receive(conn client.Receiver) {
 	var msg Message
-	dec := gob.NewDecoder(rwc)
+	var peerId string
 
 	for {
-		if err := dec.Decode(&msg); err == io.EOF || msg.Type == CLOSE {
-			_ = rwc.Close()
-			if msg.PeerID == b.Coordinator() {
+		data, err := conn.Listen()
+		if err != nil && !errors.Is(err, io.EOF) {
+			fmt.Printf("error while receiving info: %v\n", err)
+			continue
+		}
+		if err == nil {
+			if err := json.Unmarshal(data, &msg); err != nil {
+				fmt.Printf("error while unmarshalling info: %v data is: %s\n", err, string(data))
+				continue
+			}
+			peerId = msg.PeerID
+		}
+		if (err != nil && errors.Is(err, io.EOF)) || msg.Type == CLOSE {
+			_ = conn.Close()
+			if peerId == b.Coordinator() {
 				b.peers.Delete(msg.PeerID)
-				b.SetCoordinator(b.ID)
 				b.Elect()
 			}
 			break
@@ -91,7 +96,7 @@ func (b *bully) receive(rwc io.ReadCloser) {
 // NOTE: this function is an infinite loop.
 func (b *bully) listen() {
 	for {
-		conn, err := b.AcceptTCP()
+		conn, err := b.client.AcceptNewConnections()
 		if err != nil {
 			log.Printf("listen: %v", err)
 			continue
@@ -103,13 +108,11 @@ func (b *bully) listen() {
 // Listen makes `b` listens on the address `addr` provided using the protocol
 // `proto` and returns an `error` if something occurs.
 func (b *bully) Listen(proto, addr string) error {
-	laddr, err := net.ResolveTCPAddr(proto, addr)
-	if err != nil {
-		return fmt.Errorf("listen: %v", err)
-	}
-	b.TCPListener, err = net.ListenTCP(proto, laddr)
-	if err != nil {
-		return fmt.Errorf("listen: %v", err)
+	config := createSocketConfig(addr)
+	b.client = client.NewSocket(config)
+	b.ack = config.NodeACK
+	if err := b.client.StartListener(); err != nil {
+		return fmt.Errorf("error while creating listener: %v", err)
 	}
 	go b.listen()
 	return nil
@@ -123,10 +126,12 @@ func (b *bully) Listen(proto, addr string) error {
 // NOTE: In the case `ID` already exists in `b.peers`, the new connection
 // replaces the old one.
 func (b *bully) connect(addr, ID string) error {
-	c := client.NewSocket(createSocketConfig(addr)) // ToDo Add will have to receive a client type
+	config := createSocketConfig(addr)
+
+	c := client.NewSocket(config)
 	if err := c.OpenConnection(); err != nil {
 		_ = c.Close()
-		return fmt.Errorf("could not open connection to ID: %s, err: %v", ID, err)
+		return fmt.Errorf("could not open connection to ID: %s, err: %v\n", ID, err)
 	}
 	b.peers.Add(ID, addr, c)
 	return nil
@@ -165,7 +170,7 @@ func (b *bully) Send(to, addr string, what int) error {
 			return fmt.Errorf("send: %v", err)
 		}
 		_ = b.connect(addr, to)
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 	}
 	return nil
 }
@@ -179,6 +184,7 @@ func (b *bully) SetCoordinator(ID string) {
 	defer b.mu.Unlock()
 
 	if ID > b.coordinator || ID == b.ID {
+		log.Infof("setting coordintator to id: %s", ID)
 		b.coordinator = ID
 		b.leaderChan <- struct{}{}
 	}
@@ -202,15 +208,20 @@ func (b *bully) Elect() {
 		}
 	}
 
-	select {
-	case <-b.electionChan:
-		return
-	case <-time.After(time.Second):
-		b.SetCoordinator(b.ID)
-		for _, rBully := range b.peers.PeerData() {
-			_ = b.Send(rBully.ID, rBully.Addr, COORDINATOR)
+	for {
+		select {
+		case msg := <-b.electionChan:
+			if msg.PeerID < b.ID {
+				continue
+			}
+			return
+		case <-time.After(5 * time.Second):
+			b.SetCoordinator(b.ID)
+			for _, rBully := range b.peers.PeerData() {
+				_ = b.Send(rBully.ID, rBully.Addr, COORDINATOR)
+			}
+			return
 		}
-		return
 	}
 }
 
@@ -218,6 +229,7 @@ func (b *bully) Elect() {
 func (b *bully) Run() {
 	b.Elect()
 	for msg := range b.receiveChan {
+		log.Infof("message received: on run %v\n", msg)
 		if msg.Type == ELECTION && msg.PeerID < b.ID {
 			_ = b.Send(msg.PeerID, msg.Addr, OK)
 			b.Elect()
@@ -238,6 +250,5 @@ func (b *bully) WakeMeUpWhenSeptemberEnds() {
 }
 
 func (b *bully) Close() {
-	// ToDo implement me b.peers.Close()
-
+	b.peers.Close()
 }

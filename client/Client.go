@@ -1,12 +1,15 @@
 package client
 
-import "net"
-
 type Client interface {
 	OpenConnection() error
 	Close() error
 	StartListener() error
-	AcceptNewConnections() (net.Conn, error)
+	AcceptNewConnections() (Receiver, error)
 	Send(dataAsBytes []byte) error
-	Listen(targetEndMessage string, finMessages []string) ([]byte, error)
+	Listen() ([]byte, error)
+}
+
+type Receiver interface {
+	Listen() ([]byte, error)
+	Close() error
 }
