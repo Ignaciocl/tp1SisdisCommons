@@ -1,0 +1,38 @@
+services:
+  main:
+    build:
+      context: .
+    container_name: maybe1
+    environment:
+      - ID=1
+    networks:
+      - bikers
+
+  maybe2:
+    build:
+      context: .
+    container_name: maybe2
+    environment:
+      - ID=2
+    networks:
+      - bikers
+  maybe3:
+    build:
+      context: .
+    container_name: maybe3
+    environment:
+      - ID=3
+    networks:
+      - bikers
+  maybe4:
+    build:
+      context: .
+    container_name: maybe4
+    environment:
+      - ID=4
+    networks:
+      - bikers
+
+networks:
+  bikers:
+    name: bikers
