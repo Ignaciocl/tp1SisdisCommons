@@ -48,3 +48,12 @@ func LogError(err error, msg string) {
 		log.Errorf("%s: %s", msg, err)
 	}
 }
+
+func Contains[T comparable](targetString T, sliceOfStrings []T) bool {
+	for i := range sliceOfStrings {
+		if sliceOfStrings[i] == targetString {
+			return true
+		}
+	}
+	return false
+}
