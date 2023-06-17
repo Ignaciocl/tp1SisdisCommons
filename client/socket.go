@@ -7,13 +7,20 @@ import (
 	"strconv"
 )
 
-const AmountBytesPrefix = 5
+const amountBytesPrefix = 5
 
 type SocketConfig struct {
 	Protocol    string
 	NodeAddress string
-	NodeACK     string
 	PacketLimit int
+}
+
+func NewSocketConfig(protocol string, nodeAddress string, packetLimit int) SocketConfig {
+	return SocketConfig{
+		Protocol:    protocol,
+		NodeAddress: nodeAddress,
+		PacketLimit: packetLimit,
+	}
 }
 
 type socket struct {
@@ -77,7 +84,11 @@ func (s *socket) AcceptNewConnections() (Receiver, error) {
 		)
 		return nil, err
 	}
-	return &socket{connection: connection, config: SocketConfig{PacketLimit: s.config.PacketLimit, NodeACK: s.config.NodeACK}}, nil
+
+	return &socket{
+		connection: connection,
+		config:     s.config,
+	}, nil
 }
 
 func (s *socket) Send(bytes []byte) error {
@@ -106,16 +117,16 @@ func (s *socket) Send(bytes []byte) error {
 }
 
 func (s *socket) Listen() ([]byte, error) {
-	bytesToRead := make([]byte, AmountBytesPrefix)
+	bytesToRead := make([]byte, amountBytesPrefix)
 	total := make([]byte, 0)
-	if i, err := s.connection.Read(bytesToRead); i < AmountBytesPrefix {
+	if i, err := s.connection.Read(bytesToRead); i < amountBytesPrefix {
 		bytesToRead = bytesToRead[0:i]
 		if err != nil {
 			log.Errorf("error while reading is %v", err)
 			return nil, err
 		}
 		j := i
-		remaining := AmountBytesPrefix
+		remaining := amountBytesPrefix
 		for {
 			r := remaining - j
 			remaining -= j

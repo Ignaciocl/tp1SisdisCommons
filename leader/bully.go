@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+const (
+	protocol    = "tcp"
+	packetLimit = 8 * 1024
+)
+
 // bully is a `struct` representing a single node used by the `bully Algorithm`.
 //
 // NOTE: More details about the `bully algorithm` can be found here
@@ -108,9 +113,8 @@ func (b *bully) listen() {
 // Listen makes `b` listens on the address `addr` provided using the protocol
 // `proto` and returns an `error` if something occurs.
 func (b *bully) Listen(proto, addr string) error {
-	config := createSocketConfig(addr)
-	b.client = client.NewSocket(config)
-	b.ack = config.NodeACK
+	socketConfig := client.NewSocketConfig(protocol, addr, packetLimit)
+	b.client = client.NewSocket(socketConfig)
 	if err := b.client.StartListener(); err != nil {
 		return fmt.Errorf("error while creating listener: %v", err)
 	}
@@ -126,9 +130,8 @@ func (b *bully) Listen(proto, addr string) error {
 // NOTE: In the case `ID` already exists in `b.peers`, the new connection
 // replaces the old one.
 func (b *bully) connect(addr, ID string) error {
-	config := createSocketConfig(addr)
-
-	c := client.NewSocket(config)
+	socketConfig := client.NewSocketConfig(protocol, addr, packetLimit)
+	c := client.NewSocket(socketConfig)
 	if err := c.OpenConnection(); err != nil {
 		_ = c.Close()
 		return fmt.Errorf("could not open connection to ID: %s, err: %v\n", ID, err)
