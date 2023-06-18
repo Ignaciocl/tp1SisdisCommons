@@ -7,12 +7,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// Run initialize the health check routine. This routine listen for heartbeats in a given port and replies with
-// an ACK message
-func Run(serviceName string) error {
+type healthChecker struct {
+	config      *config.HealthCheckConfig
+	serviceName string
+	socket      client.Client
+}
+
+// InitHealthChecker inits a health checker for the given serviceName
+func InitHealthChecker(serviceName string) (HealthChecker, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	address := fmt.Sprintf("%s:%v", serviceName, cfg.Port)
@@ -24,34 +29,49 @@ func Run(serviceName string) error {
 		),
 	)
 
-	err = socket.StartListener()
+	return &healthChecker{
+		config:      cfg,
+		serviceName: serviceName,
+		socket:      socket,
+	}, nil
+}
+
+// Run triggers the health check routine. This routine listen for heartbeats in a given port and replies them with an ACK message
+func (hc *healthChecker) Run() error {
+	err := hc.socket.StartListener()
 	if err != nil {
 		return err
 	}
 
-	conn, err := socket.AcceptNewConnections()
+	messageHandler, err := hc.socket.AcceptNewConnections()
 	if err != nil {
 		return err
 	}
 
 	for {
-		message, err := conn.Listen()
+		message, err := messageHandler.Listen()
 		if err != nil {
-			log.Error(getLogMessage(serviceName, "error listening heartbeat", err))
-			conn, _ = socket.AcceptNewConnections() // ToDo: check this
+			log.Error(getLogMessage(hc.serviceName, "error listening heartbeat. Accepting new connections again...", err))
+			messageHandler, err = hc.socket.AcceptNewConnections()
+
+			if err != nil {
+				log.Error(getLogMessage(hc.serviceName, "error accepting new connections", err))
+				return err
+			}
+
 			continue
 		}
 
-		if string(message) == cfg.HealthCheckMessage {
-			log.Debug(getLogMessage(serviceName, "got heartbeat message correctly! Sending ACK...", nil))
-			healthCheckACKBytes := []byte(cfg.HealthCheckACK)
-			err := socket.Send(healthCheckACKBytes)
+		if string(message) == hc.config.HealthCheckMessage {
+			log.Debug(getLogMessage(hc.serviceName, "got heartbeat message correctly! Sending ACK...", nil))
+			healthCheckACKBytes := []byte(hc.config.HealthCheckACK)
+
+			err = messageHandler.Send(healthCheckACKBytes)
 			if err != nil {
-				log.Error(getLogMessage(serviceName, "error sending ACK message for heartbeat", err))
+				log.Error(getLogMessage(hc.serviceName, "error sending ACK message for heartbeat", err))
 			}
 		}
 	}
-
 }
 
 func getLogMessage(service string, message string, err error) string {
