@@ -107,7 +107,7 @@ func InitializeReceiver[R any](queueName string, connection string, key string, 
 	r.conn = conn
 	r.ch = ch
 
-	queueDeclarationConfig := rabbitconfigfactory.NewQueueDeclarationConfig(fmt.Sprintf("%s.%s", queueName, key), )
+	queueDeclarationConfig := rabbitconfigfactory.NewQueueDeclarationConfig(fmt.Sprintf("%s.%s", queueName, key))
 	q, err := ch.QueueDeclare(
 		queueDeclarationConfig.Name,
 		queueDeclarationConfig.Durable,
@@ -127,5 +127,8 @@ func InitializeReceiver[R any](queueName string, connection string, key string, 
 	r.key = key
 	r.closingChannel = errChannel
 	r.topicName = topicName
+	if topicName == "" {
+		r.topicName = queueName
+	}
 	return &r, nil
 }
