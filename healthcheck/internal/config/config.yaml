@@ -1,0 +1,5 @@
+healthcheck_port: 6969
+packet_limit: 8192 # 8 * 1024
+protocol: "tcp"
+healthcheck_message: 'te estas portando mal'
+healthcheck_response: 'seras castigada'
