@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// GetConfigFileAsBytes loads the file in the given path and returns it as a slice of bytes
 func GetConfigFileAsBytes(filepath string) ([]byte, error) {
 	configFile, err := os.Open(filepath)
 	if err != nil {

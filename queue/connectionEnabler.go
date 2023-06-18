@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"github.com/Ignaciocl/tp1SisdisCommons/rabbitconfigfactory"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -36,20 +37,20 @@ func initializeConnectionRabbit(retrievable ConnectionRetrievable, connection st
 		c.ch = retrievable.GetChannel()
 		c.conn = nil
 	} else {
-		url := fmt.Sprintf("amqp://guest:guest@%s:5672/", connection)
+		url := fmt.Sprintf(rabbitconfigfactory.GetConnectionString(), connection)
 		conn, err := amqp.Dial(url)
 		if err != nil {
 			utils.LogError(err, "Failed to connect to RabbitMQ")
-			conn.Close()
 			return c, err
 		}
+
 		ch, err := conn.Channel()
 		if err != nil {
 			utils.LogError(err, "Failed to connect to RabbitMQ")
-			ch.Close()
-			conn.Close()
+			_ = conn.Close()
 			return c, err
 		}
+
 		c.ch = ch
 		c.conn = conn
 	}

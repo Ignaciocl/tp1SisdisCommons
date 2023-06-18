@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Ignaciocl/tp1SisdisCommons/rabbitconfigfactory"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -24,20 +25,40 @@ func (r *receiver[R]) ReceiveMessage() (R, uint64, error) {
 
 	go func() {
 		if r.channelConsuming == nil {
-			err := r.ch.ExchangeDeclare(r.topicName, "topic", true, false, false, false, nil)
-			utils.LogError(err, "couldn't declare exchange")
-			err = r.ch.QueueBind(r.queue.Name, r.key, "", false, nil) // ToDo check this
-			utils.LogError(err, "could not bind queue")
-
-			msgs, err := r.ch.Consume(
-				r.queue.Name, // queue
-				"",           // consumer
-				false,        // auto-ack
-				false,        // exclusive
-				false,        // no-local
-				false,        // no-wait
-				nil,          // args
+			exchangeDeclarationConfig := rabbitconfigfactory.NewExchangeDeclarationConfig(r.topicName, "topic")
+			err := r.ch.ExchangeDeclare(
+				exchangeDeclarationConfig.Name,
+				exchangeDeclarationConfig.Type,
+				exchangeDeclarationConfig.Durable,
+				exchangeDeclarationConfig.AutoDeleted,
+				exchangeDeclarationConfig.Internal,
+				exchangeDeclarationConfig.NoWait,
+				exchangeDeclarationConfig.Arguments,
 			)
+			if err != nil {
+				utils.LogError(err, "couldn't declare exchange")
+				received <- err
+				return
+			}
+
+			err = r.ch.QueueBind(r.queue.Name, r.key, "", false, nil) // ToDo check this
+			if err != nil {
+				utils.LogError(err, "could not bind queue")
+				received <- err
+				return
+			}
+
+			consumptionConfig := rabbitconfigfactory.NewConsumptionConfig(r.queue.Name, "")
+			msgs, err := r.ch.Consume(
+				consumptionConfig.QueueName,
+				consumptionConfig.Consumer,
+				consumptionConfig.AutoACK,
+				consumptionConfig.Exclusive,
+				consumptionConfig.NoLocal,
+				consumptionConfig.NoWait,
+				consumptionConfig.Arguments,
+			)
+
 			if err != nil {
 				received <- err
 				return
@@ -86,16 +107,17 @@ func InitializeReceiver[R any](queueName string, connection string, key string, 
 	r.conn = conn
 	r.ch = ch
 
+	queueDeclarationConfig := rabbitconfigfactory.NewQueueDeclarationConfig(fmt.Sprintf("%s.%s", queueName, key), )
 	q, err := ch.QueueDeclare(
-		fmt.Sprintf("%s.%s", queueName, key), // name
-		true,                                 // durable
-		false,                                // delete when unused
-		false,                                // exclusive
-		false,                                // no-wait
-		nil,                                  // arguments
+		queueDeclarationConfig.Name,
+		queueDeclarationConfig.Durable,
+		queueDeclarationConfig.DeleteWhenUnused,
+		queueDeclarationConfig.Exclusive,
+		queueDeclarationConfig.NoWait,
+		queueDeclarationConfig.Arguments,
 	)
 	if err != nil {
-		r.Close()
+		_ = r.Close()
 		utils.FailOnError(err, "Failed to declare a queue")
 		return nil, err
 	}

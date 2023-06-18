@@ -2,7 +2,9 @@ package commons
 
 import (
 	"context"
+	"fmt"
 	"github.com/Ignaciocl/tp1SisdisCommons/queue"
+	"github.com/Ignaciocl/tp1SisdisCommons/rabbitconfigfactory"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -16,28 +18,40 @@ type publisher struct {
 	data queue.ConnectionRetrievable
 }
 
-func (p *publisher) Publish(targetPublic string, body []byte, key string, kindOfPublish string) error {
+func (p *publisher) Publish(targetPublic string, body []byte, routingKey string, kindOfPublish string) error {
+	exchangeDeclarationConfig := rabbitconfigfactory.NewExchangeDeclarationConfig(targetPublic, kindOfPublish)
 	err := p.data.GetChannel().ExchangeDeclare(
-		targetPublic,  // name
-		kindOfPublish, // type
-		true,          // durable
-		false,         // auto-deleted
-		false,         // internal
-		false,         // no-wait
-		nil,           // arguments
+		exchangeDeclarationConfig.Name,
+		exchangeDeclarationConfig.Type,
+		exchangeDeclarationConfig.Durable,
+		exchangeDeclarationConfig.AutoDeleted,
+		exchangeDeclarationConfig.Internal,
+		exchangeDeclarationConfig.NoWait,
+		exchangeDeclarationConfig.Arguments,
 	)
-	utils.FailOnError(err, "Failed to declare an exchange")
+	if err != nil {
+		utils.FailOnError(err, "Failed to declare an exchange")
+		return err
+	}
+
 	ctx := context.Background()
-	return p.data.GetChannel().PublishWithContext(ctx,
-		targetPublic, // exchange
-		key,
-		false, // mandatory
-		false, // immediate
+	publishConfig := rabbitconfigfactory.NewPublishingConfig(targetPublic, routingKey)
+	err = p.data.GetChannel().PublishWithContext(ctx,
+		publishConfig.Exchange,
+		publishConfig.RoutingKey,
+		publishConfig.Mandatory,
+		publishConfig.Immediate,
 		amqp.Publishing{
-			ContentType: "text/plain",
+			ContentType: publishConfig.ContentType,
 			Body:        body,
 		},
 	)
+
+	if err != nil {
+		utils.FailOnError(err, fmt.Sprintf("Failed publishing message in exchange '%s' with routing key '%s'", publishConfig.Exchange, routingKey))
+		return err
+	}
+	return nil
 }
 
 func (p *publisher) Close() {

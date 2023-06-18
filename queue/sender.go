@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Ignaciocl/tp1SisdisCommons/rabbitconfigfactory"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"strconv"
 )
+
+const wildcardRoutingKey = "#"
 
 type sender[S any] struct {
 	connectionEnable
@@ -24,19 +27,21 @@ func (s *sender[S]) SendMessage(message S) error {
 		return errors.New(fmt.Sprintf("data object: %v is not marshable", message))
 	}
 	ctx := context.Background()
-	key := "#"
+	routingKey := wildcardRoutingKey
 	if s.maxAmount > 0 {
-		key = strconv.Itoa(s.currentAmount%s.maxAmount + 1)
+		routingKey = strconv.Itoa(s.currentAmount%s.maxAmount + 1)
 		s.currentAmount = s.currentAmount + 1%s.maxAmount
 	}
+
+	publishConfig := rabbitconfigfactory.NewPublishingConfig(s.consumerName, routingKey)
 	return s.ch.PublishWithContext(ctx,
-		s.consumerName, // exchange
-		key,            // routing key
-		false,          // mandatory
-		false,          // immediate
+		publishConfig.Exchange,
+		publishConfig.RoutingKey,
+		publishConfig.Mandatory,
+		publishConfig.Immediate,
 		amqp.Publishing{
 			DeliveryMode: amqp.Transient,
-			ContentType:  "text/plain",
+			ContentType:  publishConfig.ContentType,
 			Body:         data,
 		},
 	)
@@ -48,14 +53,16 @@ func InitializeSender[S any](consumerName string, maxAmountReceivers int, cr Con
 		utils.LogError(err, "could not establish connection")
 		return nil, err
 	}
+
 	conn, ch := c.conn, c.ch
+	queueDeclarationConfig := rabbitconfigfactory.NewQueueDeclarationConfig(fmt.Sprintf("sender-%s", consumerName))
 	q, err := ch.QueueDeclare(
-		fmt.Sprintf("sender-%s", consumerName), // name
-		true,                                   // durable
-		false,                                  // delete when unused
-		false,                                  // exclusive
-		false,                                  // no-wait
-		nil,                                    // arguments
+		queueDeclarationConfig.Name,
+		queueDeclarationConfig.Durable,
+		queueDeclarationConfig.DeleteWhenUnused,
+		queueDeclarationConfig.Exclusive,
+		queueDeclarationConfig.NoWait,
+		queueDeclarationConfig.Arguments,
 	)
 	if err != nil {
 		c.Close()
