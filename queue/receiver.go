@@ -41,7 +41,7 @@ func (r *receiver[R]) ReceiveMessage() (R, uint64, error) {
 				return
 			}
 
-			err = r.ch.QueueBind(r.queue.Name, r.key, "", false, nil) // ToDo check this
+			err = r.ch.QueueBind(r.queue.Name, r.key, exchangeDeclarationConfig.Name, false, nil) // ToDo check this
 			if err != nil {
 				utils.LogError(err, "could not bind queue")
 				received <- err
