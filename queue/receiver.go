@@ -7,6 +7,7 @@ import (
 	"github.com/Ignaciocl/tp1SisdisCommons/rabbitconfigfactory"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
+	log "github.com/sirupsen/logrus"
 )
 
 type receiver[Receivable any] struct {
@@ -71,8 +72,9 @@ func (r *receiver[R]) ReceiveMessage() (R, uint64, error) {
 			receivedMessage = rm.Body
 			idMessage = rm.DeliveryTag
 		case _ = <-r.closingChannel:
-			received <- nil
+			log.Infof("channel is closing, gravitate that helicopter")
 		}
+		received <- nil
 	}()
 	err := <-received
 	if err != nil {
