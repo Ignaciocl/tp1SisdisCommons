@@ -58,7 +58,7 @@ func NewBully(ID, addr, proto string, peers map[string]string) (Leader, error) {
 	return b, nil
 }
 
-func (b *bully) receive(conn client.Receiver) {
+func (b *bully) receive(conn client.MessageHandler) {
 	var msg Message
 	var peerId string
 
