@@ -75,7 +75,7 @@ func (s *socket) StartListener() error {
 	return nil
 }
 
-func (s *socket) AcceptNewConnections() (Receiver, error) {
+func (s *socket) AcceptNewConnections() (MessageHandler, error) {
 	connection, err := s.listener.Accept()
 	if err != nil {
 		log.Errorf(
@@ -95,14 +95,14 @@ func (s *socket) Send(bytes []byte) error {
 	size := len(bytes)
 	bytesAmount := []byte(fmt.Sprintf("%05d", size))
 	bytesToSend := append(bytesAmount, bytes...)
-	eightKB := 8 * 1024
 	size = len(bytesToSend)
-	for i := 0; i <= len(bytesToSend); i += eightKB {
+
+	for i := 0; i <= len(bytesToSend); i += s.config.PacketLimit {
 		var sending []byte
-		if size < i+eightKB {
+		if size < i+s.config.PacketLimit {
 			sending = bytesToSend[i:size]
 		} else {
-			sending = bytesToSend[i : i+eightKB]
+			sending = bytesToSend[i : i+s.config.PacketLimit]
 		}
 		amountSent, err := s.connection.Write(sending)
 		if err != nil {
