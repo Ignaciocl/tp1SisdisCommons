@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/Ignaciocl/tp1SisdisCommons/queue"
+	"github.com/Ignaciocl/tp1SisdisCommons/rabbitconfigfactory"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 	log "github.com/sirupsen/logrus"
 )
+
+const eofRoutingKey = "eof"
 
 type EofData struct {
 	EOF            bool   `json:"eof"`
@@ -49,15 +52,18 @@ func (a *answerEofOk) AnswerEofOk(key string, actionable Actionable) {
 }
 
 func (a *answerEofOk) Close() {
-
+	// No Op
 }
 
+// sendEOFCorrect Licha add documentation
 func (a *answerEofOk) sendEOFCorrect(key string) {
 	if a.nextToNotify == nil {
 		return
 	}
 	for _, v := range a.nextToNotify {
 		ctx := context.Background()
+
+		// ToDo: We should handle this error. Licha
 		body, _ := json.Marshal(EofData{
 			EOF:            true,
 			IdempotencyKey: key,
@@ -68,13 +74,17 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 		} else {
 			ch = v.Connection.GetChannel()
 		}
+
+		publishingConfig := rabbitconfigfactory.NewPublishingConfig(v.Name, eofRoutingKey)
+
+		// ToDo: We should handle this error. Licha
 		ch.PublishWithContext(ctx,
-			v.Name, // exchange
-			"eof",
-			false, // mandatory
-			false, // immediate
+			publishingConfig.Exchange,
+			publishingConfig.RoutingKey,
+			publishingConfig.Mandatory,
+			publishingConfig.Immediate,
 			amqp.Publishing{
-				ContentType: "text/plain",
+				ContentType: publishingConfig.ContentType,
 				Body:        body,
 			},
 		)
@@ -87,21 +97,22 @@ type NextToNotify struct {
 }
 
 func CreateConsumerEOF(nextInLine []NextToNotify, queueType string, queue queue.ConnectionRetrievable, necessaryAmount int) (WaitForEof, error) {
+	exchangeConfig := rabbitconfigfactory.NewExchangeDeclarationConfig(queueType, "topic")
 	if err := queue.GetChannel().ExchangeDeclare(
-		queueType, // name
-		"topic",   // type
-		true,      // durable
-		false,     // auto-deleted
-		false,     // internal
-		false,     // no-wait
-		nil,       // arguments
+		exchangeConfig.Name,
+		exchangeConfig.Type,
+		exchangeConfig.Durable,
+		exchangeConfig.AutoDeleted,
+		exchangeConfig.Internal,
+		exchangeConfig.NoWait,
+		exchangeConfig.Arguments,
 	); err != nil {
 		return nil, err
 	}
 
 	err := queue.GetChannel().QueueBind(
 		queue.GetQueue().Name, // queue name
-		"eof",                 // routing key
+		eofRoutingKey,         // routing key
 		queueType,             // exchange
 		false,
 		nil,
