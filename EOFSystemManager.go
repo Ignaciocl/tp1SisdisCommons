@@ -44,7 +44,7 @@ func (a *answerEofOk) AnswerEofOk(key string, actionable Actionable) {
 	if d >= a.necessaryAmount {
 		log.Infof("received %d times the key: %s, map is: %v", d, key, a.current)
 		a.current[key] = 0
-		a.sendEOFCorrect(key)
+		a.sendEOF(key)
 		if actionable != nil {
 			actionable.DoActionIfEOF()
 		}
@@ -55,15 +55,14 @@ func (a *answerEofOk) Close() {
 	// No Op
 }
 
-// sendEOFCorrect Licha add documentation
-func (a *answerEofOk) sendEOFCorrect(key string) {
+// sendEOF sends an EOF with the given idempotency key
+func (a *answerEofOk) sendEOF(key string) {
 	if a.nextToNotify == nil {
 		return
 	}
 	for _, v := range a.nextToNotify {
 		ctx := context.Background()
 
-		// ToDo: We should handle this error. Licha
 		body, _ := json.Marshal(EofData{
 			EOF:            true,
 			IdempotencyKey: key,
@@ -77,7 +76,6 @@ func (a *answerEofOk) sendEOFCorrect(key string) {
 
 		publishingConfig := rabbitconfigfactory.NewPublishingConfig(v.Name, eofRoutingKey)
 
-		// ToDo: We should handle this error. Licha
 		ch.PublishWithContext(ctx,
 			publishingConfig.Exchange,
 			publishingConfig.RoutingKey,
