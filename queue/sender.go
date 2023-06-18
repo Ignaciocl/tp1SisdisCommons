@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-const wildcardRoutingKey = "#"
+const wildcardRoutingKey = ""
 
 type sender[S any] struct {
 	connectionEnable
@@ -20,14 +20,17 @@ type sender[S any] struct {
 	consumerName  string
 }
 
-func (s *sender[S]) SendMessage(message S) error {
+// SendMessage specificTopic is a string signaling to which topic the message should go
+// this field will be ignored in case the amount of receivers is bigger than 0 (set in constructor)
+// If specific topic is empty then a fanout approach will be made
+func (s *sender[S]) SendMessage(message S, specificTopic string) error {
 	data, err := json.Marshal(message)
 	if err != nil {
 		utils.LogError(err, "error while marshalling")
 		return errors.New(fmt.Sprintf("data object: %v is not marshable", message))
 	}
 	ctx := context.Background()
-	routingKey := wildcardRoutingKey
+	routingKey := specificTopic
 	if s.maxAmount > 0 {
 		routingKey = strconv.Itoa(s.currentAmount%s.maxAmount + 1)
 		s.currentAmount = s.currentAmount + 1%s.maxAmount
