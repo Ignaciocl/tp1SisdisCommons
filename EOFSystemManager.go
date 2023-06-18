@@ -7,6 +7,9 @@ import (
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
 	amqp "github.com/rabbitmq/amqp091-go"
 	log "github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 type EofData struct {
@@ -110,4 +113,27 @@ func CreateConsumerEOF(nextInLine []NextToNotify, queueType string, queue queue.
 	kv := make(map[string]int, 0)
 	log.Infof("queue for manager eof %s created", queueType)
 	return &answerEofOk{queueInfo: queue, nextToNotify: nextInLine, necessaryAmount: necessaryAmount, current: kv}, nil
+}
+
+func WaitForSigterm(manager GracielaManager) {
+	oniChan := make(chan os.Signal, 1)
+	// catch SIGETRM or SIGINTERRUPT
+	signal.Notify(oniChan, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		if manager != nil {
+			manager.WaitForSigterm()
+			oniChan <- syscall.SIGTERM
+		}
+	}()
+	<-oniChan
+}
+
+func RecoverFromPanic(manager GracielaManager, connection string) {
+	if manager == nil {
+		manager, _ = CreateGracefulManager(connection)
+	}
+	if r := recover(); r != nil {
+		log.Infof("recovered from panic at %v", r)
+		manager.SignalSigterm()
+	}
 }
