@@ -71,10 +71,11 @@ func (r *receiver[R]) ReceiveMessage() (R, uint64, error) {
 			rm := d
 			receivedMessage = rm.Body
 			idMessage = rm.DeliveryTag
-		case _ = <-r.closingChannel:
+			received <- nil
+		case err := <-r.closingChannel:
+			received <- err
 			log.Infof("channel is closing, gravitate that helicopter")
 		}
-		received <- nil
 	}()
 	err := <-received
 	if err != nil {

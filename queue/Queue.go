@@ -11,7 +11,7 @@ type ConnectionRetrievable interface {
 }
 
 type Sender[Sendable any] interface {
-	SendMessage(message Sendable) error
+	SendMessage(message Sendable, specificTopic string) error
 	ConnectionRetrievable
 }
 
