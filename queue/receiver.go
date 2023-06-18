@@ -41,7 +41,7 @@ func (r *receiver[R]) ReceiveMessage() (R, uint64, error) {
 				return
 			}
 
-			err = r.ch.QueueBind(r.queue.Name, r.key, "", false, nil) // ToDo check this
+			err = r.ch.QueueBind(r.queue.Name, r.key, exchangeDeclarationConfig.Name, false, nil) // ToDo check this
 			if err != nil {
 				utils.LogError(err, "could not bind queue")
 				received <- err
@@ -107,7 +107,7 @@ func InitializeReceiver[R any](queueName string, connection string, key string, 
 	r.conn = conn
 	r.ch = ch
 
-	queueDeclarationConfig := rabbitconfigfactory.NewQueueDeclarationConfig(fmt.Sprintf("%s.%s", queueName, key), )
+	queueDeclarationConfig := rabbitconfigfactory.NewQueueDeclarationConfig(fmt.Sprintf("%s.%s", queueName, key))
 	q, err := ch.QueueDeclare(
 		queueDeclarationConfig.Name,
 		queueDeclarationConfig.Durable,
@@ -127,5 +127,8 @@ func InitializeReceiver[R any](queueName string, connection string, key string, 
 	r.key = key
 	r.closingChannel = errChannel
 	r.topicName = topicName
+	if topicName == "" {
+		r.topicName = queueName
+	}
 	return &r, nil
 }

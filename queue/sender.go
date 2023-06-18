@@ -71,7 +71,7 @@ func InitializeSender[S any](consumerName string, maxAmountReceivers int, cr Con
 	}
 	s := sender[S]{
 		maxAmount:    maxAmountReceivers,
-		consumerName: connectionName,
+		consumerName: consumerName,
 	}
 	s.ch, s.queue, s.conn = ch, &q, conn
 	return &s, nil
