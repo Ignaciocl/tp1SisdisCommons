@@ -2,36 +2,9 @@ package utils
 
 import (
 	"errors"
-	"github.com/Ignaciocl/tp1SisdisCommons"
 	amqp "github.com/rabbitmq/amqp091-go"
 	log "github.com/sirupsen/logrus"
-	"os"
-	"os/signal"
-	"syscall"
 )
-
-func WaitForSigterm(manager commons.GracielaManager) {
-	oniChan := make(chan os.Signal, 1)
-	// catch SIGETRM or SIGINTERRUPT
-	signal.Notify(oniChan, syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		if manager != nil {
-			manager.WaitForSigterm()
-			oniChan <- syscall.SIGTERM
-		}
-	}()
-	<-oniChan
-}
-
-func RecoverFromPanic(manager commons.GracielaManager, connection string) {
-	if manager == nil {
-		manager, _ = commons.CreateGracefulManager(connection)
-	}
-	if r := recover(); r != nil {
-		log.Infof("recovered from panic at %v", r)
-		manager.SignalSigterm()
-	}
-}
 
 func FailOnError(err error, msg string) {
 	if err != nil {
