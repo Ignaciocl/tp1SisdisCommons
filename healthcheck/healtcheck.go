@@ -20,6 +20,8 @@ func InitHealthChecker(serviceName string) (HealthChecker, error) {
 		return nil, err
 	}
 
+	log.Debugf("Lichita la config es esta: %+v", cfg)
+
 	address := fmt.Sprintf("%s:%v", serviceName, cfg.Port)
 	socket := client.NewSocket(
 		client.NewSocketConfig(
@@ -40,11 +42,13 @@ func InitHealthChecker(serviceName string) (HealthChecker, error) {
 func (hc *healthChecker) Run() error {
 	err := hc.socket.StartListener()
 	if err != nil {
+		log.Errorf("Lichita error starteando listener %v", err)
 		return err
 	}
 
 	messageHandler, err := hc.socket.AcceptNewConnections()
 	if err != nil {
+		log.Errorf("Lichita error accept connections %v", err)
 		return err
 	}
 
