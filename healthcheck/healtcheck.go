@@ -63,7 +63,7 @@ func (hc *healthChecker) Run() error {
 		}
 
 		if string(message) == hc.config.HealthCheckMessage {
-			log.Debug(getLogMessage(hc.serviceName, "got heartbeat message correctly! Sending ACK...", nil))
+			log.Debug(getLogMessage(hc.serviceName, fmt.Sprintf("got heartbeat message '%s' correctly! Sending ACK...", string(message)), nil))
 			healthCheckACKBytes := []byte(hc.config.HealthCheckACK)
 
 			err = messageHandler.Send(healthCheckACKBytes)

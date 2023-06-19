@@ -9,7 +9,7 @@ import (
 const configFilepath = "./config.yaml"
 
 type HealthCheckConfig struct {
-	Port               int    `yaml:"port"`
+	Port               int    `yaml:"healthcheck_port"`
 	PacketLimit        int    `yaml:"packet_limit"`
 	Protocol           string `yaml:"protocol"`
 	HealthCheckMessage string `yaml:"healthcheck_message"`
