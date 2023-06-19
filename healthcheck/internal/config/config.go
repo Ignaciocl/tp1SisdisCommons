@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const configFilepath = "./config/config.yaml"
+const configFilepath = "./config.yaml"
 
 type HealthCheckConfig struct {
 	Port               int    `yaml:"healthcheck_port"`
