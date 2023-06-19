@@ -54,7 +54,7 @@ func (c *csvManager[T]) Close() {
 
 // CreateCSVFileManager the transformer has to transform from T to string with the string being a comma separated string
 func CreateCSVFileManager[T any](transformer Transformer[T, []string], nameFile string) (Manager[T], error) {
-	f, err := os.OpenFile(nameFile, os.O_RDWR+os.O_CREATE, 0666)
+	f, err := os.OpenFile(nameFile, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, fmt.Errorf("error while openning file: %v", err)
 	}

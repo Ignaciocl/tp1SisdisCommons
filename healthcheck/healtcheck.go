@@ -14,14 +14,8 @@ type healthChecker struct {
 }
 
 // InitHealthChecker inits a health checker for the given serviceName
-func InitHealthChecker(serviceName string) (HealthChecker, error) {
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debugf("Lichita la config es esta: %+v", cfg)
-
+func InitHealthChecker(serviceName string) HealthChecker {
+	cfg := config.GetHealthCheckConfig()
 	address := fmt.Sprintf("%s:%v", serviceName, cfg.Port)
 	socket := client.NewSocket(
 		client.NewSocketConfig(
@@ -35,7 +29,7 @@ func InitHealthChecker(serviceName string) (HealthChecker, error) {
 		config:      cfg,
 		serviceName: serviceName,
 		socket:      socket,
-	}, nil
+	}
 }
 
 // Run triggers the health check routine. This routine listen for heartbeats in a given port and replies them with an ACK message
