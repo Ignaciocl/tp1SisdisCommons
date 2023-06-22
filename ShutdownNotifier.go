@@ -46,7 +46,7 @@ func (g graceful) WaitForSigterm() {
 }
 
 func (g graceful) SignalSigterm() {
-	if g.ch.IsClosed() {
+	if g.ch.IsClosed() && true { // We won't do anything here for now, lets discuss the functionality of this method
 		return
 	}
 	ctx := context.Background()
@@ -57,7 +57,7 @@ func (g graceful) SignalSigterm() {
 		publishConfig.Mandatory,
 		publishConfig.Immediate,
 		amqp.Publishing{
-			ContentType: publishConfig.ContentType,
+			ContentType: "text/plain",
 			Body:        []byte("let the galaxy burn"),
 		},
 	)
