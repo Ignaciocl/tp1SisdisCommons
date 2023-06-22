@@ -46,7 +46,7 @@ func (g graceful) WaitForSigterm() {
 }
 
 func (g graceful) SignalSigterm() {
-	if g.ch.IsClosed() && true { // We won't do anything here for now, lets discuss the functionality of this method
+	if g.ch.IsClosed() || true { // We won't do anything here for now, lets discuss the functionality of this method
 		return
 	}
 	ctx := context.Background()
