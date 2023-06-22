@@ -71,11 +71,14 @@ func (d *db[T]) ReadLine() (T, error) {
 
 func (d *db[T]) Read() ([]T, error) {
 	data := make([]T, 0)
+	counter := int64(0)
 	for {
 		line, err := d.ReadLine()
 		if err != nil {
 			return data, err
 		}
+		line.SetId(counter)
+		counter += 1
 		data = append(data, line)
 	}
 }
