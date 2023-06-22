@@ -2,8 +2,10 @@ package keyChecker
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/Ignaciocl/tp1SisdisCommons/fileManager"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
+	"io"
 	"strings"
 )
 
@@ -55,7 +57,7 @@ func (i *idempotencyChecker) AddKey(keyToAdd string) error {
 	if i.IsKey(keyToAdd) {
 		return nil
 	}
-	if i.limitKeys >= len(i.chronologicalKeys) {
+	if i.limitKeys <= len(i.chronologicalKeys) {
 		d := i.keys[i.chronologicalKeys[i.currentPosKey]]
 		delete(i.keys, d.IdempotencyKey)
 		newKey := key{keyToAdd, d.Id}
@@ -79,7 +81,7 @@ func (i *idempotencyChecker) AddKey(keyToAdd string) error {
 }
 
 func (i *idempotencyChecker) fillData() error {
-	if data, err := i.db.Read(); err != nil {
+	if data, err := i.db.Read(); err != nil && !errors.Is(err, io.EOF) {
 		return err
 	} else {
 		for _, d := range data {
