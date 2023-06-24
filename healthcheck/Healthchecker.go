@@ -1,5 +1,5 @@
 package healthcheck
 
-type HealthChecker interface {
+type HealthCheckerReplier interface {
 	Run() error
 }
