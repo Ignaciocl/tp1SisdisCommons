@@ -70,6 +70,7 @@ func (i *idempotencyChecker) AddKey(keyToAdd string) error {
 			return err
 		}
 		i.chronologicalKeys[i.currentPosKey] = newKey.IdempotencyKey
+		i.keys[newKey.IdempotencyKey] = &newKey
 		i.currentPosKey = (i.currentPosKey + 1) % i.limitKeys
 	} else {
 		k := key{
