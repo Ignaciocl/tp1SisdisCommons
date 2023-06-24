@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/Ignaciocl/tp1SisdisCommons/fileManager"
 	"github.com/Ignaciocl/tp1SisdisCommons/utils"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"strings"
 )
@@ -58,13 +59,18 @@ func (i *idempotencyChecker) AddKey(keyToAdd string) error {
 		return nil
 	}
 	if i.limitKeys <= len(i.chronologicalKeys) {
-		d := i.keys[i.chronologicalKeys[i.currentPosKey]]
+		d, ok := i.keys[i.chronologicalKeys[i.currentPosKey]]
+		if !ok {
+			log.Infof("could not find key on map, map is: %+v, key to add is: %s, key to use is: %s, position is: %d", i.keys, keyToAdd, i.chronologicalKeys[i.currentPosKey], i.currentPosKey)
+			return errors.New("could not find key on map to update")
+		}
 		delete(i.keys, d.IdempotencyKey)
 		newKey := key{keyToAdd, d.Id}
 		if err := i.db.Write(&newKey); err != nil {
 			return err
 		}
 		i.chronologicalKeys[i.currentPosKey] = newKey.IdempotencyKey
+		i.currentPosKey = (i.currentPosKey + 1) % i.limitKeys
 	} else {
 		k := key{
 			IdempotencyKey: keyToAdd,
@@ -76,7 +82,6 @@ func (i *idempotencyChecker) AddKey(keyToAdd string) error {
 		i.keys[k.IdempotencyKey] = &k
 		i.chronologicalKeys = append(i.chronologicalKeys, k.IdempotencyKey)
 	}
-	i.currentPosKey = (i.currentPosKey + 1) % i.limitKeys
 	return nil
 }
 
