@@ -47,10 +47,10 @@ func (a *answerEofOk) AnswerEofOk(key string, actionable Actionable) {
 	if d >= a.necessaryAmount {
 		log.Infof("received %d times the key: %s, map is: %v", d, key, a.current)
 		a.current[key] = 0
-		a.sendEOF(key)
 		if actionable != nil {
 			actionable.DoActionIfEOF()
 		}
+		a.sendEOF(key)
 	}
 }
 
