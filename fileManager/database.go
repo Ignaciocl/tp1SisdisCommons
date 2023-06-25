@@ -21,6 +21,7 @@ type db[T Storable] struct {
 	sizeLine int64
 	saved    int64
 	endLine  []byte
+	filename string
 }
 
 func createByteArray(endLine []byte, size int64) []byte {
@@ -103,6 +104,11 @@ func CreateDB[T Storable](trans Transformer[T, []byte], fileName string, sizeLin
 		writer:   f,
 		closer:   f,
 		endLine:  []byte(endLine),
+		filename: fileName,
 	}
 	return &d, nil
+}
+
+func (d *db[T]) Clear() {
+	os.Truncate(d.filename, 0)
 }

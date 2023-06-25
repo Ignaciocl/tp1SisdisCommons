@@ -99,6 +99,14 @@ func (i *idempotencyChecker) fillData() error {
 	return nil
 }
 
+func (i *idempotencyChecker) Close() {
+	i.db.Close()
+}
+func (i *idempotencyChecker) Clear() {
+	i.db.Clear()
+	i.keys = make(map[string]*key, 0)
+	i.chronologicalKeys = make([]string, 0, i.limitKeys)
+}
 func CreateIdempotencyChecker(maxAmountKeys int) (Checker, error) {
 	db, err := fileManager.CreateDB[*key](trans{}, "idempotencyDB", 200, Sep)
 	if err != nil {
