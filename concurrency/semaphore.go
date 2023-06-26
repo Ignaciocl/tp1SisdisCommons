@@ -1,16 +1,16 @@
 package concurrency
 
-type semaphore chan int
+type Semaphore chan int
 
-// newSemaphore initializes a semaphore with capacity equal to N
-func newSemaphore(n int) semaphore {
-	return make(semaphore, n)
+// NewSemaphore initializes a semaphore with capacity equal to N
+func NewSemaphore(n int) Semaphore {
+	return make(Semaphore, n)
 }
 
-func (s semaphore) acquire() {
+func (s Semaphore) Acquire() {
 	s <- 1
 }
 
-func (s semaphore) release() {
+func (s Semaphore) Release() {
 	<-s
 }
