@@ -14,14 +14,14 @@ type Storable interface {
 }
 
 type db[T Storable] struct {
-	writer   io.WriteSeeker
-	reader   io.Reader
-	closer   io.Closer
-	agus     Transformer[T, []byte]
-	sizeLine int64
-	saved    int64
-	endLine  []byte
-	filename string
+	writer      io.WriteSeeker
+	reader      io.Reader
+	closer      io.Closer
+	transformer Transformer[T, []byte]
+	sizeLine    int64
+	saved       int64
+	endLine     []byte
+	filename    string
 }
 
 func createByteArray(endLine []byte, size int64) []byte {
@@ -37,7 +37,7 @@ func (d *db[T]) Write(data T) error {
 		}
 		isNew = false
 	}
-	dataToSave := d.agus.ToWritable(data)
+	dataToSave := d.transformer.ToWritable(data)
 	msgSize := int64(len(dataToSave))
 	if endLineSize := int64(len(d.endLine)); msgSize > d.sizeLine-endLineSize-1 {
 		return fmt.Errorf("size of data to stored far exceeds the limit set at the constructor which is: %d, size of message: %d, end batch size: %d", d.sizeLine-1, msgSize, endLineSize)
@@ -66,7 +66,7 @@ func (d *db[T]) ReadLine() (T, error) {
 		}
 		return dataParsed, fmt.Errorf("could not read a line from the file, err is: %v, amount read: %d", err, i)
 	} else {
-		return d.agus.FromWritable(data), nil
+		return d.transformer.FromWritable(data), nil
 	}
 }
 
@@ -97,14 +97,14 @@ func CreateDB[T Storable](trans Transformer[T, []byte], fileName string, sizeLin
 		return nil, fmt.Errorf("error while openning file: %v", err)
 	}
 	d := db[T]{
-		agus:     trans,
-		sizeLine: sizeLine,
-		saved:    0,
-		reader:   f,
-		writer:   f,
-		closer:   f,
-		endLine:  []byte(endLine),
-		filename: fileName,
+		transformer: trans,
+		sizeLine:    sizeLine,
+		saved:       0,
+		reader:      f,
+		writer:      f,
+		closer:      f,
+		endLine:     []byte(endLine),
+		filename:    fileName,
 	}
 	return &d, nil
 }
