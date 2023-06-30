@@ -7,6 +7,7 @@ type Client interface {
 	AcceptNewConnections() (MessageHandler, error)
 	Send(dataAsBytes []byte) error
 	Listen() ([]byte, error)
+	IsConnectionOpen() bool
 }
 
 type MessageHandler interface {
