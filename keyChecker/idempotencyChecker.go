@@ -61,10 +61,10 @@ func (i *idempotencyChecker) AddKey(keyToAdd string) error {
 	if i.limitKeys <= len(i.chronologicalKeys) {
 		d, ok := i.keys[i.chronologicalKeys[i.currentPosKey]]
 		if !ok {
-			log.Infof("could not find key on map, map is: %+v, key to add is: %s, key to use is: %s, position is: %d", i.keys, keyToAdd, i.chronologicalKeys[i.currentPosKey], i.currentPosKey)
-			return errors.New("could not find key on map to update")
+			log.Debugf("could not find key on map, map is: %+v, key to add is: %s, key to use is: %s, position is: %d", i.keys, keyToAdd, i.chronologicalKeys[i.currentPosKey], i.currentPosKey)
+		} else {
+			delete(i.keys, d.IdempotencyKey)
 		}
-		delete(i.keys, d.IdempotencyKey)
 		newKey := key{keyToAdd, d.Id}
 		if err := i.db.Write(&newKey); err != nil {
 			return err
