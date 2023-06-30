@@ -37,6 +37,12 @@ func (d *db[T]) Write(data T) error {
 		}
 		isNew = false
 	}
+	if isNew {
+		_, err := d.writer.Seek(0, io.SeekEnd)
+		if err != nil {
+			return err
+		}
+	}
 	dataToSave := d.transformer.ToWritable(data)
 	msgSize := int64(len(dataToSave))
 	if endLineSize := int64(len(d.endLine)); msgSize > d.sizeLine-endLineSize-1 {
