@@ -82,6 +82,8 @@ func (d *db[T]) Read() ([]T, error) {
 	for {
 		line, err := d.ReadLine()
 		if err != nil {
+			_, e := d.writer.Seek(0, io.SeekStart)
+			utils.LogError(e, "couldn't set seek to the start")
 			return data, err
 		}
 		line.SetId(counter)
@@ -112,6 +114,9 @@ func CreateDB[T Storable](trans Transformer[T, []byte], fileName string, sizeLin
 		endLine:     []byte(endLine),
 		filename:    fileName,
 	}
+	t, _ := d.Read()
+	d.saved = int64(len(t))
+
 	return &d, nil
 }
 
