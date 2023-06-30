@@ -255,3 +255,7 @@ func (b *bully) WakeMeUpWhenSeptemberEnds() {
 func (b *bully) Close() {
 	b.peers.Close()
 }
+
+func (b *bully) IsLeader() bool {
+	return b.ID == b.Coordinator()
+}

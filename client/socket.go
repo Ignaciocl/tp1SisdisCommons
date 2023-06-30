@@ -104,6 +104,10 @@ func (s *socket) Send(bytes []byte) error {
 		} else {
 			sending = bytesToSend[i : i+s.config.PacketLimit]
 		}
+
+		if !s.IsConnectionOpen() {
+			return fmt.Errorf("error: trying to send something with a connection closed")
+		}
 		amountSent, err := s.connection.Write(sending)
 		if err != nil {
 			log.Printf("weird error happened, stopping but something should be checked: %v", err)
@@ -165,4 +169,9 @@ func (s *socket) Listen() ([]byte, error) {
 	}
 	finalData := total[0:realN]
 	return finalData, nil
+}
+
+// IsConnectionOpen returns true if the connection is established, otherwise false
+func (s *socket) IsConnectionOpen() bool {
+	return s.connection != nil
 }
